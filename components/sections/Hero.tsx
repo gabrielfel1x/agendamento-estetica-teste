@@ -1,5 +1,3 @@
-import OpenModalButton from '@/components/OpenModalButton';
-
 export default function Hero() {
   return (
     <section id="hero">
@@ -16,29 +14,24 @@ export default function Hero() {
         <div className="hero-content">
           <p className="hero-label">Clínica Estética Premium &middot; Desde 2015</p>
           <h1 className="hero-title">
-            <span className="line"><span className="line-inner">Seu agendamento</span></span>
-            <span className="line"><span className="line-inner"><em>estético</em> em</span></span>
-            <span className="line"><span className="line-inner">um clique.</span></span>
+            <span className="line"><span className="line-inner">Excelência em</span></span>
+            <span className="line"><span className="line-inner">estética <em>facial</em> e</span></span>
+            <span className="line"><span className="line-inner">corporal.</span></span>
           </h1>
           <p className="hero-sub">
-            Procedimentos exclusivos com profissionais certificados. Agende online em
-            minutos, com confirmação imediata e atendimento verdadeiramente personalizado.
+            Procedimentos exclusivos com profissionais certificados. Resultados que transformam
+            com segurança, técnica e cuidado verdadeiramente personalizado.
           </p>
           <div className="hero-actions">
-            <OpenModalButton className="btn-primary">
-              <span>Agendar Agora</span>
-            </OpenModalButton>
-            <a href="#procedures" className="btn-outline">
-              Ver Procedimentos
+            <a href="#procedures" className="btn-primary">
+              <span>Ver Procedimentos</span>
+            </a>
+            <a href="#how" className="btn-outline">
+              Como funciona
             </a>
           </div>
         </div>
       </div>
-
-      {/* <div className="hero-scroll">
-        <span className="hero-scroll-label">Explorar</span>
-        <div className="scroll-line" />
-      </div> */}
     </section>
   );
 }

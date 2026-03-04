@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useModal } from '@/lib/modal-context';
+import Link from 'next/link';
 
 export default function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { openModal } = useModal();
-
   const closeMenu = () => setMenuOpen(false);
 
   return (
@@ -21,14 +19,14 @@ export default function Nav() {
 
             <ul className="nav-links">
               <li><a href="#procedures">Procedimentos</a></li>
-              <li><a href="#benefits">Por que nós</a></li>
+              <li><a href="#plans">Planos</a></li>
               <li><a href="#how">Como funciona</a></li>
               <li><a href="#testimonials">Depoimentos</a></li>
             </ul>
 
-            <button className="nav-cta" onClick={() => openModal()}>
-              Agendar Agora
-            </button>
+            <Link href="/login" className="nav-cta">
+              Área Restrita
+            </Link>
 
             <button
               className={`nav-hamburger ${menuOpen ? 'open' : ''}`}
@@ -41,21 +39,17 @@ export default function Nav() {
         </div>
       </nav>
 
-      {/* Mobile full-screen menu */}
       <div className={`nav-mobile-menu ${menuOpen ? 'open' : ''}`}>
         <a href="#procedures" onClick={closeMenu}>Procedimentos</a>
         <div className="m-divider" />
-        <a href="#benefits" onClick={closeMenu}>Por que nós</a>
+        <a href="#plans" onClick={closeMenu}>Planos</a>
         <div className="m-divider" />
         <a href="#how" onClick={closeMenu}>Como funciona</a>
         <div className="m-divider" />
         <a href="#testimonials" onClick={closeMenu}>Depoimentos</a>
-        <button
-          className="nav-mobile-cta"
-          onClick={() => { closeMenu(); openModal(); }}
-        >
-          Agendar Agora
-        </button>
+        <Link href="/login" className="nav-mobile-cta" onClick={closeMenu}>
+          Área Restrita
+        </Link>
       </div>
     </>
   );

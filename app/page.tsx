@@ -2,6 +2,7 @@ import Nav          from '@/components/Nav';
 import Hero         from '@/components/sections/Hero';
 import Ticker       from '@/components/sections/Ticker';
 import Procedures   from '@/components/sections/Procedures';
+import Plans        from '@/components/sections/Plans';
 import Benefits     from '@/components/sections/Benefits';
 import StatsBar     from '@/components/sections/StatsBar';
 import HowItWorks   from '@/components/sections/HowItWorks';
@@ -17,6 +18,7 @@ export default function Home() {
         <Hero />
         <Ticker />
         <Procedures />
+        <Plans />
         <Benefits />
         <StatsBar />
         <HowItWorks />

@@ -1,5 +1,5 @@
 import { PROCEDURES } from '@/lib/constants';
-import OpenModalButton from '@/components/OpenModalButton';
+import Link from 'next/link';
 
 export default function Procedures() {
   return (
@@ -32,12 +32,12 @@ export default function Procedures() {
                 {proc.name.split(' ').slice(-1)}
               </h3>
               <p className="proc-desc">{proc.desc}</p>
-              <OpenModalButton className="proc-btn" procIdx={i}>
-                Agendar
+              <Link href="/login" className="proc-btn">
+                Saiba mais
                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
-              </OpenModalButton>
+              </Link>
             </div>
             <span className="proc-tag">{proc.tag}</span>
           </div>

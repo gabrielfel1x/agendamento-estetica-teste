@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Cormorant_Garamond, Outfit } from 'next/font/google';
 import './globals.css';
-import { ModalProvider } from '@/lib/modal-context';
+import { AuthProvider } from '@/lib/auth-context';
 import ClientSetup from '@/components/ClientSetup';
 
 const cormorant = Cormorant_Garamond({
@@ -20,19 +20,19 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'Lumière Estética — Agendamento Online Premium',
+  title: 'Lumière Estética — Sistema de Gestão',
   description:
-    'Procedimentos estéticos exclusivos com profissionais certificados. Agende online em minutos, com confirmação imediata e atendimento personalizado.',
+    'Sistema interno de gestão para a Clínica Lumière. Agenda, clientes e relatórios em um só lugar.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${cormorant.variable} ${outfit.variable}`}>
       <body>
-        <ClientSetup />
-        <ModalProvider>
+        <AuthProvider>
           {children}
-        </ModalProvider>
+          <ClientSetup />
+        </AuthProvider>
       </body>
     </html>
   );
