@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import {
   ADMIN_APPOINTMENTS,
   getTotalRevenue,
@@ -8,6 +7,15 @@ import {
   getWeekdayCounts,
   getNextAppointment,
 } from '@/lib/admin-data';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
 
 const TODAY = '2026-03-04';
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -16,47 +24,35 @@ function fmtCurrency(n: number) {
   return 'R$ ' + n.toLocaleString('pt-BR');
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="chart-tooltip">
+      <p className="chart-tooltip-label">{label}</p>
+      <p className="chart-tooltip-value">{payload[0].value} agendamentos</p>
+    </div>
+  );
+}
+
 export default function OverviewSection() {
-  const [animated, setAnimated] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setAnimated(true), 120);
-    return () => clearTimeout(t);
-  }, []);
-
   const totalMonth = ADMIN_APPOINTMENTS.filter(a => a.status !== 'cancelado').length;
   const todayApts  = ADMIN_APPOINTMENTS.filter(a => a.date === TODAY && a.status !== 'cancelado').length;
   const totalRev   = getTotalRevenue();
-  const ticket     = getTicketMedio();
   const next       = getNextAppointment();
   const counts     = getWeekdayCounts();
   const maxCount   = Math.max(...counts, 1);
 
+  const chartData = counts.map((c, i) => ({
+    name: WEEKDAY_LABELS[i],
+    value: c,
+  }));
+
   const metrics = [
-    {
-      label: 'Agendamentos no mês',
-      value: String(totalMonth),
-      sub: 'março 2026',
-      accent: false,
-    },
-    {
-      label: 'Receita acumulada',
-      value: fmtCurrency(totalRev),
-      sub: 'confirmados',
-      accent: true,
-    },
-    {
-      label: 'Agendamentos hoje',
-      value: String(todayApts),
-      sub: '4 de março',
-      accent: false,
-    },
-    {
-      label: 'Próximo horário',
-      value: next ? next.time : '—',
-      sub: next ? next.patient : 'nenhum',
-      accent: false,
-    },
+    { label: 'Agendamentos no mês', value: String(totalMonth), sub: 'março 2026', accent: false },
+    { label: 'Receita acumulada', value: fmtCurrency(totalRev), sub: 'confirmados', accent: true },
+    { label: 'Agendamentos hoje', value: String(todayApts), sub: '4 de março', accent: false },
+    { label: 'Próximo horário', value: next ? next.time : '—', sub: next ? next.patient : 'nenhum', accent: false },
   ];
 
   return (
@@ -77,50 +73,43 @@ export default function OverviewSection() {
         ))}
       </div>
 
-      {/* Bar chart */}
+      {/* Bar chart — Recharts */}
       <div className="admin-chart-wrap">
         <div className="admin-chart-header">
           <h3 className="admin-chart-title">Agendamentos por dia da semana</h3>
           <p className="admin-chart-sub">março 2026 — confirmados + pendentes</p>
         </div>
-        <div className="admin-chart-body">
-          <svg
-            className="admin-chart-svg"
-            viewBox="0 0 420 180"
-            preserveAspectRatio="none"
-          >
-            {counts.map((c, i) => {
-              const barH = animated ? Math.round((c / maxCount) * 120) : 0;
-              const x    = i * 70 + 10;
-              const y    = 140 - barH;
-              return (
-                <g key={i}>
-                  {/* Background track */}
-                  <rect x={x} y={20} width={50} height={120} rx="3" fill="rgba(29,92,58,0.05)" />
-                  {/* Filled bar */}
-                  <rect
-                    x={x}
-                    y={y}
-                    width={50}
-                    height={barH}
-                    rx="3"
-                    className={`admin-chart-bar${c === maxCount ? ' peak' : ''}`}
-                    style={{ transition: `y .8s cubic-bezier(0,0,.2,1) ${i * 0.07}s, height .8s cubic-bezier(0,0,.2,1) ${i * 0.07}s` }}
+        <div className="admin-chart-body" style={{ width: '100%', height: 280 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} barCategoryGap="20%" margin={{ top: 20, right: 8, bottom: 4, left: -20 }}>
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: '#8f8f87', fontFamily: 'var(--font-outfit), system-ui' }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 11, fill: '#8f8f87', fontFamily: 'var(--font-outfit), system-ui' }}
+                allowDecimals={false}
+              />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: 'rgba(201,168,76,0.06)', radius: 6 }}
+              />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out">
+                {chartData.map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={entry.value === maxCount ? '#c9a84c' : '#f7f2e8'}
+                    stroke={entry.value === maxCount ? '#c9a84c' : '#e8e4da'}
+                    strokeWidth={1}
                   />
-                  {/* Count label */}
-                  <text x={x + 25} y={y - 6} textAnchor="middle" className="admin-chart-count">
-                    {animated ? c : ''}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-          {/* X-axis labels */}
-          <div className="admin-chart-labels">
-            {WEEKDAY_LABELS.map(l => (
-              <span key={l}>{l}</span>
-            ))}
-          </div>
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -133,9 +122,7 @@ export default function OverviewSection() {
               <span className="admin-recent-time">{a.time}</span>
               <span className="admin-recent-name">{a.patient}</span>
               <span className="admin-recent-proc">{a.procedure}</span>
-              <span className={`admin-recent-badge ${a.status}`}>
-                {a.status}
-              </span>
+              <span className={`admin-recent-badge ${a.status}`}>{a.status}</span>
               <span className="admin-recent-price">{a.price}</span>
             </div>
           ))}
