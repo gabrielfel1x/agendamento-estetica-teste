@@ -35,10 +35,10 @@ export default function Hero() {
         </div>
       </div>
 
-      <div className="hero-scroll">
+      {/* <div className="hero-scroll">
         <span className="hero-scroll-label">Explorar</span>
         <div className="scroll-line" />
-      </div>
+      </div> */}
     </section>
   );
 }

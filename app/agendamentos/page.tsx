@@ -56,9 +56,9 @@ export default function AgendamentosPage() {
         <div className="apts-stats">
           <div className="apts-stat-card">
             <p className={`apts-stat-n stat-total`}>{MOCK_APPOINTMENTS.length}</p>
-            <p className="apts-stat-l">Total</p>
+            <p className="apts-stat-l">Agendamentos</p>
           </div>
-          <div className="apts-stat-card">
+          {/* <div className="apts-stat-card">
             <p className="apts-stat-n stat-confirmado">{count('confirmado')}</p>
             <p className="apts-stat-l">Confirmados</p>
           </div>
@@ -69,11 +69,11 @@ export default function AgendamentosPage() {
           <div className="apts-stat-card">
             <p className="apts-stat-n stat-cancelado">{count('cancelado')}</p>
             <p className="apts-stat-l">Cancelados</p>
-          </div>
-        </div>
+          </div> */}
+        </div> 
 
         {/* Filters */}
-        <div className="apts-filters">
+        {/* <div className="apts-filters">
           {(['todos','confirmado','pendente','cancelado'] as Filter[]).map(f => (
             <button
               key={f}
@@ -83,7 +83,7 @@ export default function AgendamentosPage() {
               {f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
-        </div>
+        </div> */}
 
         {/* Cards */}
         {filtered.length === 0 ? (
@@ -133,20 +133,20 @@ export default function AgendamentosPage() {
                 </div>
                 <div className="apt-footer">
                   <div style={{display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
-                    <span className={`apt-status-badge ${apt.status}`}>
+                    {/* <span className={`apt-status-badge ${apt.status}`}>
                       {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
-                    </span>
+                    </span> */}
                     <span className="apt-price">{apt.price}</span>
                   </div>
                   <div className="apt-actions">
                     <button className="apt-action-btn apt-action-detail">
                       Ver detalhes
                     </button>
-                    {apt.status !== 'cancelado' && (
+                    {/* {apt.status !== 'cancelado' && (
                       <button className="apt-action-btn apt-action-cancel">
                         Cancelar
                       </button>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </div>
