@@ -9,8 +9,8 @@ export default function Footer() {
               <span className="logo-dot" />
             </div>
             <p>
-              Clínica estética premium especializada em procedimentos faciais e corporais.
-              Excelência, segurança e resultados que transformam.
+              Clínica estética premium com planos de assinatura mensal.
+              Procedimentos exclusivos, economia real e cuidado contínuo.
             </p>
           </div>
 
@@ -18,17 +18,19 @@ export default function Footer() {
             <h4>Procedimentos</h4>
             <ul>
               {['Limpeza de Pele','Toxina Botulínica','Preenchimento','Massagem','Laser Corporal','Drenagem Linfática'].map(p => (
-                <li key={p}><a href="#">{p}</a></li>
+                <li key={p}><a href="#procedures">{p}</a></li>
               ))}
             </ul>
           </div>
 
           <div className="footer-col">
-            <h4>Clínica</h4>
+            <h4>Planos</h4>
             <ul>
-              {['Sobre nós','Nossa equipe','Certificações','Blog','Contato'].map(p => (
-                <li key={p}><a href="#">{p}</a></li>
-              ))}
+              <li><a href="#plans">Plano Essencial</a></li>
+              <li><a href="#plans">Plano Premium</a></li>
+              <li><a href="#plans">Plano VIP</a></li>
+              <li><a href="/cadastro">Criar conta</a></li>
+              <li><a href="/login">Área do assinante</a></li>
             </ul>
           </div>
 

@@ -1,22 +1,22 @@
 const steps = [
   {
-    n: '1', title: 'Escolha', desc: 'Selecione o procedimento ideal para sua necessidade e objetivo estético.',
+    n: '1', title: 'Escolha', desc: 'Conheça nossos planos e escolha o que melhor se encaixa na sua rotina de cuidados.',
     icon: <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
   },
   {
-    n: '2', title: 'Data', desc: 'Escolha o dia que melhor se encaixa na sua agenda no calendário interativo.',
+    n: '2', title: 'Cadastro', desc: 'Crie sua conta em segundos com nome, e-mail e senha. Rápido e sem burocracia.',
+    icon: <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
+  },
+  {
+    n: '3', title: 'Assine', desc: 'Insira os dados do cartão de crédito e ative seu plano com cobrança mensal automática.',
+    icon: <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>,
+  },
+  {
+    n: '4', title: 'Agende', desc: 'Com o plano ativo, agende seus procedimentos com prioridade e condições exclusivas.',
     icon: <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
   },
   {
-    n: '3', title: 'Horário', desc: 'Veja os horários disponíveis em tempo real e reserve o que preferir.',
-    icon: <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>,
-  },
-  {
-    n: '4', title: 'Pagamento', desc: 'Finalize com cartão de crédito ou Pix. Seguro e sem burocracia.',
-    icon: <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>,
-  },
-  {
-    n: '5', title: 'Confirmação', desc: 'Receba confirmação instantânea e adicione ao seu calendário.',
+    n: '5', title: 'Aproveite', desc: 'Acompanhe tudo pelo painel do assinante: plano, cobranças, histórico e mais.',
     icon: <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>,
   },
 ];
@@ -27,9 +27,9 @@ export default function HowItWorks() {
       <div className="container">
         <div className="how-header">
           <p className="section-label reveal">Como funciona</p>
-          <h2 className="section-title reveal d1">Simples, <em>rápido</em> e elegante.</h2>
+          <h2 className="section-title reveal d1">Assine em <em>minutos</em>, aproveite o mês todo.</h2>
           <p className="section-sub reveal d2" style={{ margin: '16px auto 0', textAlign: 'center' }}>
-            Cinco passos para transformar sua rotina de cuidados.
+            Cinco passos para começar sua jornada de cuidados com a Lumière.
           </p>
         </div>
 

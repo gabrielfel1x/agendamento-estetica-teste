@@ -12,19 +12,19 @@ export default function Hero() {
 
       <div className="container">
         <div className="hero-content">
-          <p className="hero-label">Clínica Estética Premium &middot; Desde 2015</p>
+          <p className="hero-label">Clínica Estética Premium &middot; Planos Mensais</p>
           <h1 className="hero-title">
-            <span className="line"><span className="line-inner">Excelência em</span></span>
-            <span className="line"><span className="line-inner">estética <em>facial</em> e</span></span>
-            <span className="line"><span className="line-inner">corporal.</span></span>
+            <span className="line"><span className="line-inner">Sua beleza com</span></span>
+            <span className="line"><span className="line-inner">cuidado <em>contínuo</em> e</span></span>
+            <span className="line"><span className="line-inner">exclusivo.</span></span>
           </h1>
           <p className="hero-sub">
-            Procedimentos exclusivos com profissionais certificados. Resultados que transformam
-            com segurança, técnica e cuidado verdadeiramente personalizado.
+            Assine um plano mensal e tenha acesso a procedimentos estéticos premium
+            com condições especiais, agendamento prioritário e acompanhamento personalizado.
           </p>
           <div className="hero-actions">
-            <a href="#procedures" className="btn-primary">
-              <span>Ver Procedimentos</span>
+            <a href="#plans" className="btn-primary">
+              <span>Conhecer Planos</span>
             </a>
             <a href="#how" className="btn-outline">
               Como funciona

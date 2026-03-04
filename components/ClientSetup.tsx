@@ -46,13 +46,27 @@ export default function ClientSetup() {
       (entries) => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
       { threshold: 0.1, rootMargin: '0px 0px -60px 0px' }
     );
-    document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el => revealObs.observe(el));
 
     const lineObs = new IntersectionObserver(
       (entries) => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
       { threshold: 0.3 }
     );
-    document.querySelectorAll('.steps-line-fill').forEach(el => lineObs.observe(el));
+
+    function observeAll() {
+      document.querySelectorAll('.reveal:not(.visible),.reveal-left:not(.visible),.reveal-right:not(.visible)').forEach(el => revealObs.observe(el));
+      document.querySelectorAll('.steps-line-fill:not(.visible)').forEach(el => lineObs.observe(el));
+    }
+
+    // Observe immediately + after paint + watch for new elements
+    observeAll();
+    requestAnimationFrame(() => {
+      observeAll();
+    });
+
+    const mutObs = new MutationObserver(() => {
+      observeAll();
+    });
+    mutObs.observe(document.body, { childList: true, subtree: true });
 
     return () => {
       document.removeEventListener('mousemove', onMove);
@@ -60,6 +74,7 @@ export default function ClientSetup() {
       cancelAnimationFrame(rafId);
       revealObs.disconnect();
       lineObs.disconnect();
+      mutObs.disconnect();
       dot.remove();
       ring.remove();
     };

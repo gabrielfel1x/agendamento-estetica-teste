@@ -1,5 +1,4 @@
 import { PROCEDURES } from '@/lib/constants';
-import Link from 'next/link';
 
 export default function Procedures() {
   return (
@@ -14,8 +13,8 @@ export default function Procedures() {
             </h2>
           </div>
           <p className="section-sub reveal d2">
-            Cada procedimento é personalizado com protocolos de alta performance e
-            materiais de excelência, aplicados por especialistas certificados.
+            Todos inclusos nos nossos planos mensais. Protocolos de alta performance
+            e materiais de excelência, aplicados por especialistas certificados.
           </p>
         </div>
       </div>
@@ -32,12 +31,12 @@ export default function Procedures() {
                 {proc.name.split(' ').slice(-1)}
               </h3>
               <p className="proc-desc">{proc.desc}</p>
-              <Link href="/login" className="proc-btn">
-                Saiba mais
+              <a href="#plans" className="proc-btn">
+                Ver planos
                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
-              </Link>
+              </a>
             </div>
             <span className="proc-tag">{proc.tag}</span>
           </div>

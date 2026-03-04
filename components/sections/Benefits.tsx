@@ -1,7 +1,16 @@
 const benefits = [
   {
-    title: 'Agendamento 24h',
-    text: 'Marque sua sessão a qualquer hora do dia ou da noite, sem filas e sem ligações. Tudo online, em segundos.',
+    title: 'Economia Mensal',
+    text: 'Pague menos que o valor avulso dos procedimentos. Quanto mais usa, mais economiza com seu plano.',
+    icon: (
+      <svg fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
+        <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Agendamento Prioritário',
+    text: 'Assinantes têm prioridade na escolha de horários. Reserve os melhores dias e horários antes de todos.',
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
@@ -10,7 +19,7 @@ const benefits = [
   },
   {
     title: 'Profissionais Certificados',
-    text: 'Equipe multidisciplinar com formação acadêmica de excelência e certificações nacionais e internacionais.',
+    text: 'Equipe multidisciplinar com formação de excelência e certificações nacionais e internacionais.',
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -18,8 +27,8 @@ const benefits = [
     ),
   },
   {
-    title: 'Confirmação Instantânea',
-    text: 'Receba confirmação imediata por e-mail e WhatsApp assim que seu agendamento for concluído.',
+    title: 'Sem Fidelidade',
+    text: 'Cancele quando quiser, sem multa e sem burocracia. Sua assinatura, suas regras.',
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
         <path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
@@ -27,31 +36,21 @@ const benefits = [
     ),
   },
   {
-    title: 'Pagamento Seguro',
-    text: 'Cartão de crédito, débito ou Pix com criptografia ponta a ponta. Seus dados sempre protegidos.',
+    title: 'Cobrança Automática',
+    text: 'Pagamento recorrente no cartão de crédito. Sem preocupação, sem atraso, renovação automática.',
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
-        <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+        <rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" />
       </svg>
     ),
   },
   {
-    title: 'Lembretes Automáticos',
-    text: 'Notificações inteligentes 48h e 2h antes do seu horário para que você nunca esqueça sua sessão.',
+    title: 'Painel do Assinante',
+    text: 'Acompanhe seu plano, histórico e próxima cobrança pelo painel exclusivo. Tudo na palma da mão.',
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
-        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" />
-      </svg>
-    ),
-  },
-  {
-    title: 'Reagendamento Fácil',
-    text: 'Precisou mudar? Reagende com até 12h de antecedência diretamente pelo link enviado na confirmação.',
-    icon: (
-      <svg fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
-        <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
+        <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" />
+        <line x1="12" y1="17" x2="12" y2="21" />
       </svg>
     ),
   },
@@ -62,15 +61,15 @@ export default function Benefits() {
     <section id="benefits">
       <div className="container">
         <div className="benefits-header reveal">
-          <p className="section-label">Por que nos escolher</p>
+          <p className="section-label">Vantagens do plano</p>
           <h2 className="section-title">
-            Uma experiência
+            Muito mais que
             <br />
-            <em>além do tratamento.</em>
+            <em>procedimentos avulsos.</em>
           </h2>
           <p className="section-sub">
-            Cada detalhe foi pensado para que você se sinta cuidada e segura,
-            do agendamento ao pós-procedimento.
+            Assinar a Lumière é ter acesso a uma experiência completa de cuidado,
+            com economia real e benefícios exclusivos para assinantes.
           </p>
         </div>
 

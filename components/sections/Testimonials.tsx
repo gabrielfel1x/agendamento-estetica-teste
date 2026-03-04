@@ -1,20 +1,20 @@
 const testimonials = [
   {
-    quote: 'A experiência foi completamente diferente de qualquer outra clínica que já visitei. Desde o agendamento online até o atendimento, tudo foi impecável.',
+    quote: 'Assino o plano Premium há 6 meses e já economizei mais de R$2.000 em procedimentos. A prioridade no agendamento é um diferencial enorme.',
     name: 'Ana Paula Mendes',
-    proc: 'Toxina Botulínica',
+    proc: 'Plano Premium',
     avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?auto=format&fit=crop&w=200&q=80',
   },
   {
-    quote: 'Agendei pelo site às 23h, escolhi o horário ideal, paguei com Pix e recebi a confirmação na hora. No dia seguinte já estava sendo atendida. Incrível!',
+    quote: 'Criei a conta, escolhi o plano e em 5 minutos já estava com tudo ativo. No mesmo dia agendei minha primeira sessão. Prático demais!',
     name: 'Camila Ferreira',
-    proc: 'Limpeza de Pele',
+    proc: 'Plano Essencial',
     avatar: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=200&q=80',
   },
   {
-    quote: 'Os resultados do preenchimento foram exatamente o que eu queria — naturais e harmoniosos. A doutora é extremamente cuidadosa e o espaço é lindo.',
+    quote: 'O painel do assinante é muito bem feito — consigo ver meu plano, as cobranças e até falar com a clínica pelo WhatsApp. Tudo integrado.',
     name: 'Beatriz Oliveira',
-    proc: 'Preenchimento Labial',
+    proc: 'Plano VIP',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80',
   },
 ];
@@ -35,11 +35,11 @@ export default function Testimonials() {
             <h2 className="section-title">
               O que nossas
               <br />
-              <em>pacientes dizem.</em>
+              <em>assinantes dizem.</em>
             </h2>
           </div>
           <p className="section-sub reveal d2">
-            Histórias reais de transformação e cuidado com resultado.
+            Histórias reais de quem assinou e transformou sua rotina de cuidados.
           </p>
         </div>
 

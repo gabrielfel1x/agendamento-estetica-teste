@@ -1,6 +1,6 @@
 const items = [
-  'Agendamento Online 24h', 'Confirmação Imediata', 'Profissionais Certificados',
-  '+12.000 Atendimentos', 'Pagamento Seguro', 'Reagendamento Fácil',
+  'Planos a partir de R$189/mês', 'Cancele quando quiser', 'Profissionais Certificados',
+  'Agendamento Prioritário', 'Condições Exclusivas', '+2.000 Assinantes',
 ];
 
 export default function Ticker() {

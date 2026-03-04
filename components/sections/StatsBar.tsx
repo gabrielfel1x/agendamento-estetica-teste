@@ -1,8 +1,8 @@
 const stats = [
-  { number: '12k+', label: 'Atendimentos realizados' },
-  { number: '98%',  label: 'Pacientes satisfeitas'  },
-  { number: '8',    label: 'Anos de excelência'      },
-  { number: '24h',  label: 'Agendamento disponível'  },
+  { number: '2k+',  label: 'Assinantes ativos'       },
+  { number: '98%',  label: 'Taxa de satisfação'       },
+  { number: '40%',  label: 'Economia média mensal'    },
+  { number: '3',    label: 'Planos disponíveis'       },
 ];
 
 export default function StatsBar() {
