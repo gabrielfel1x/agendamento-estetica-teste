@@ -20,9 +20,9 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'Lumière Estética — Sistema de Gestão',
+  title: 'Depill plus — Sistema de Gestão',
   description:
-    'Sistema interno de gestão para a Clínica Lumière. Agenda, clientes e relatórios em um só lugar.',
+    'Sistema interno de gestão para a Depill plus. Agenda, clientes e relatórios em um só lugar.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

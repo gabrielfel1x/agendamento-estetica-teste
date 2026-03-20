@@ -4,7 +4,7 @@ export default function Hero() {
       <div className="hero-bg">
         <img
           src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1920&q=80"
-          alt="Clínica Lumière"
+          alt="Depill plus"
         />
       </div>
       <div className="hero-overlay" />
@@ -12,19 +12,19 @@ export default function Hero() {
 
       <div className="container">
         <div className="hero-content">
-          <p className="hero-label">Clínica Estética Premium &middot; Planos Mensais</p>
+          <p className="hero-label">Centro de Saúde e Estética &middot; Depill plus</p>
           <h1 className="hero-title">
-            <span className="line"><span className="line-inner">Sua beleza com</span></span>
-            <span className="line"><span className="line-inner">cuidado <em>contínuo</em> e</span></span>
-            <span className="line"><span className="line-inner">exclusivo.</span></span>
+            <span className="line"><span className="line-inner">Cuide de você</span></span>
+            <span className="line"><span className="line-inner">com quem <em>entende</em></span></span>
+            <span className="line"><span className="line-inner">do assunto.</span></span>
           </h1>
           <p className="hero-sub">
-            Assine um plano mensal e tenha acesso a procedimentos estéticos premium
-            com condições especiais, agendamento prioritário e acompanhamento personalizado.
+            Tratamentos faciais, corporais, depilação a laser e muito mais.
+            Agende sua sessão e experimente o cuidado personalizado da Depill plus.
           </p>
           <div className="hero-actions">
-            <a href="#plans" className="btn-primary">
-              <span>Conhecer Planos</span>
+            <a href="#services" className="btn-primary">
+              <span>Ver serviços</span>
             </a>
             <a href="#how" className="btn-outline">
               Como funciona

@@ -86,8 +86,8 @@ export default function SystemSidebar() {
   return (
     <aside className="admin-sidebar">
       <div className="admin-sidebar-logo">
-        <span className="admin-logo-text">Lumière</span>
-        <span className="admin-logo-dot" />
+        <img src="/logo.svg" alt="" className="admin-logo-img" />
+        <span className="admin-logo-text">Depill plus</span>
       </div>
 
       <p className="admin-sidebar-label">

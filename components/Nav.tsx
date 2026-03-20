@@ -13,8 +13,8 @@ export default function Nav() {
         <div className="container">
           <div className="nav-inner">
             <a href="#" className="logo">
-              <span>Lumière</span>
-              <span className="logo-dot" />
+              <img src="/logo.svg" alt="Depill plus" className="nav-logo-img" />
+              <span>Depill plus</span>
             </a>
 
             <ul className="nav-links">

@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'cliente') router.replace(user.plan ? '/minha-conta' : '/assinatura');
+      if (user.role === 'cliente') router.replace('/minha-conta');
       else router.replace('/agenda');
     }
   }, [user, router]);
@@ -26,9 +26,7 @@ export default function LoginPage() {
     setLoading(true);
     setTimeout(() => {
       const ok = login(email, password);
-      if (ok) {
-        // Redirect happens via the useEffect watching user
-      } else {
+      if (!ok) {
         setError('E-mail ou senha incorretos.');
         setLoading(false);
       }
@@ -41,21 +39,22 @@ export default function LoginPage() {
       <div className="login-image-side">
         <img
           src="https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80"
-          alt="Clínica Lumière"
+          alt="Depill plus"
           className="login-bg-img"
         />
         <div className="login-image-overlay" />
         <div className="login-image-content">
           <div className="login-brand">
-            <span className="login-brand-name">Lumière</span>
-            <span className="login-brand-dot" />
+            <img src="/logo.svg" alt="Depill plus" className="login-brand-img" />
+            <span className="login-brand-name">Depill plus</span>
           </div>
-          <p className="login-image-label">Sistema de Gestão Interna</p>
+          <p className="login-image-label">Centro de Saúde e Estética</p>
           <h2 className="login-image-title">
-            Gerencie sua<br /><em>clínica</em> com<br />elegância.
+            Cuide de você<br />com quem <em>entende</em><br />do assunto.
           </h2>
           <p className="login-image-sub">
-            Agenda inteligente, gestão de clientes e relatórios financeiros em uma plataforma refinada.
+            Agende suas sessões, acompanhe seu histórico e gerencie seu pacote
+            diretamente pelo painel da Depill plus.
           </p>
         </div>
       </div>
@@ -64,13 +63,13 @@ export default function LoginPage() {
       <div className="login-form-side">
         <div className="login-form-inner">
           <div className="login-form-logo">
-            <span className="login-form-logo-text">Lumière</span>
-            <span className="login-form-logo-dot" />
+            <img src="/logo.svg" alt="Depill plus" className="login-form-logo-img" />
+            <span className="login-form-logo-text">Depill plus</span>
           </div>
 
           <div className="login-form-header">
             <h1 className="login-form-title">Bem-vinda de volta</h1>
-            <p className="login-form-sub">Acesse o sistema com suas credenciais.</p>
+            <p className="login-form-sub">Acesse sua conta com suas credenciais.</p>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit}>
@@ -118,31 +117,29 @@ export default function LoginPage() {
               className={`login-btn${loading ? ' loading' : ''}`}
               disabled={loading}
             >
-              {loading ? (
-                <span className="login-spinner" />
-              ) : 'Entrar'}
+              {loading ? <span className="login-spinner" /> : 'Entrar'}
             </button>
           </form>
 
           <div className="login-hints">
             <p className="login-hint-title">Credenciais de demonstração</p>
-            <div className="login-hint-row" onClick={() => { setEmail('admin@lumiere.com'); setPassword('admin123'); }}>
+            <div className="login-hint-row" onClick={() => { setEmail('admin@depill.com.br'); setPassword('admin123'); }}>
               <span className="login-hint-badge admin">Admin</span>
-              <span>admin@lumiere.com · admin123</span>
+              <span>admin@depill.com.br · admin123</span>
             </div>
-            <div className="login-hint-row" onClick={() => { setEmail('funcionaria@lumiere.com'); setPassword('123456'); }}>
+            <div className="login-hint-row" onClick={() => { setEmail('funcionaria@depill.com.br'); setPassword('123456'); }}>
               <span className="login-hint-badge func">Funcionária</span>
-              <span>funcionaria@lumiere.com · 123456</span>
+              <span>funcionaria@depill.com.br · 123456</span>
             </div>
-            <div className="login-hint-row" onClick={() => { setEmail('ana@lumiere.com'); setPassword('cliente1'); }}>
+            <div className="login-hint-row" onClick={() => { setEmail('cliente@depill.com.br'); setPassword('cliente1'); }}>
               <span className="login-hint-badge cliente">Cliente</span>
-              <span>ana@lumiere.com · cliente1</span>
+              <span>cliente@depill.com.br · cliente1</span>
             </div>
           </div>
 
           <p className="login-register-link">
             Ainda não tem conta?{' '}
-            <Link href="/cadastro">Criar conta</Link>
+            <Link href="/cadastro">Criar conta grátis</Link>
           </p>
 
           <Link href="/" className="login-back">

@@ -27,9 +27,9 @@ interface MockUser extends User {
 }
 
 const MOCK_USERS: MockUser[] = [
-  { id: '1', name: 'Dra. Ana Souza',   email: 'admin@lumiere.com',      password: 'admin123', role: 'admin' },
-  { id: '2', name: 'Clara Mendes',     email: 'funcionaria@lumiere.com', password: '123456',   role: 'funcionario' },
-  { id: '3', name: 'Ana Paula Mendes', email: 'ana@lumiere.com',         password: 'cliente1', role: 'cliente', plan: 'premium', planStatus: 'ativo', subscriptionDate: '2026-01-15', nextBillingDate: '2026-04-15', monthlyValue: 'R$ 389' },
+  { id: '1', name: 'Dra. Ana Souza',   email: 'admin@depill.com.br',      password: 'admin123', role: 'admin' },
+  { id: '2', name: 'Clara Mendes',     email: 'funcionaria@depill.com.br', password: '123456',   role: 'funcionario' },
+  { id: '3', name: 'Ana Paula Mendes', email: 'cliente@depill.com.br',     password: 'cliente1', role: 'cliente', plan: 'pacote', planStatus: 'ativo', subscriptionDate: '2026-01-15', nextBillingDate: '2026-04-15', monthlyValue: 'R$ 599,90' },
 ];
 
 const AuthContext = createContext<AuthCtx>({
@@ -40,7 +40,7 @@ const AuthContext = createContext<AuthCtx>({
   updateUser: () => {},
 });
 
-const STORAGE_KEY = 'lumiere_user';
+const STORAGE_KEY = 'depill_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);

@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PROCEDURES } from '@/lib/constants';
-import { ALL_TIMES } from '@/lib/constants';
+import { PROCEDURE_CATALOG, ALL_TIMES } from '@/lib/constants';
 import { addAppointment } from '@/lib/admin-data';
 
 interface Props {
@@ -36,7 +35,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
 
   // Auto-fill value from procedure
   useEffect(() => {
-    const proc = PROCEDURES[form.procedure];
+    const proc = PROCEDURE_CATALOG[form.procedure];
     if (proc) setForm(f => ({ ...f, value: proc.price }));
   }, [form.procedure]);
 
@@ -51,7 +50,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
     addAppointment({
       patient:   form.name.trim(),
       phone:     form.phone.replace(/\D/g, ''),
-      procedure: PROCEDURES[form.procedure].name,
+      procedure: PROCEDURE_CATALOG[form.procedure].name,
       priceNum:  parseInt(form.value.replace(/\D/g, '')) || 0,
       price:     form.value,
       date:      form.date,
@@ -111,7 +110,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
                 value={form.procedure}
                 onChange={e => set('procedure', Number(e.target.value))}
               >
-                {PROCEDURES.map((p, i) => (
+                {PROCEDURE_CATALOG.map((p, i) => (
                   <option key={p.name} value={i}>{p.name}</option>
                 ))}
               </select>

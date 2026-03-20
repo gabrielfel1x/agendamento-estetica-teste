@@ -1,6 +1,7 @@
 const items = [
-  'Planos a partir de R$189/mês', 'Cancele quando quiser', 'Profissionais Certificados',
-  'Agendamento Prioritário', 'Condições Exclusivas', '+2.000 Assinantes',
+  'Depilação a laser', 'Drenagem linfática', 'Tratamentos faciais',
+  'Massagem relaxante', 'Detox corporal', 'Ozônioterapia',
+  'Pacote Emagrecimento', 'Profissionais certificados', 'Centro de Saúde e Estética',
 ];
 
 export default function Ticker() {

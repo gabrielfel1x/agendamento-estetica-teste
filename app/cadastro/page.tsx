@@ -1,29 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 
-export default function CadastroPage() {
+function CadastroForm() {
   const { user, register } = useAuth();
   const router = useRouter();
-  const [name, setName]               = useState('');
-  const [email, setEmail]             = useState('');
-  const [password, setPassword]       = useState('');
-  const [confirmPwd, setConfirmPwd]   = useState('');
-  const [error, setError]             = useState('');
-  const [loading, setLoading]         = useState(false);
+  const searchParams = useSearchParams();
+  const ref = searchParams.get('ref'); // 'pacote' = vem do fluxo de contratação
+
+  const [name, setName]             = useState('');
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [error, setError]           = useState('');
+  const [loading, setLoading]       = useState(false);
 
   useEffect(() => {
     if (user) {
       if (user.role === 'cliente') {
-        router.replace(user.plan ? '/minha-conta' : '/assinatura');
+        router.replace(user.plan ? '/minha-conta' : (ref === 'pacote' ? '/assinatura' : '/minha-conta'));
       } else {
         router.replace('/agenda');
       }
     }
-  }, [user, router]);
+  }, [user, router, ref]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +45,7 @@ export default function CadastroPage() {
     setTimeout(() => {
       const ok = register(name, email, password);
       if (ok) {
-        router.push('/assinatura');
+        router.push(ref === 'pacote' ? '/assinatura' : '/minha-conta');
       } else {
         setError('Este e-mail já está em uso.');
         setLoading(false);
@@ -56,21 +59,29 @@ export default function CadastroPage() {
       <div className="login-image-side">
         <img
           src="https://images.unsplash.com/photo-1560750588-73207b1ef5b8?auto=format&fit=crop&w=1200&q=80"
-          alt="Clínica Lumière"
+          alt="Depill plus"
           className="login-bg-img"
         />
         <div className="login-image-overlay" />
         <div className="login-image-content">
           <div className="login-brand">
-            <span className="login-brand-name">Lumière</span>
-            <span className="login-brand-dot" />
+            <img src="/logo.svg" alt="Depill plus" className="login-brand-img" />
+            <span className="login-brand-name">Depill plus</span>
           </div>
-          <p className="login-image-label">Assinatura mensal</p>
+          <p className="login-image-label">
+            {ref === 'pacote' ? 'Pacote Emagrecimento e Hipertrofia' : 'Centro de Saúde e Estética'}
+          </p>
           <h2 className="login-image-title">
-            Sua jornada de<br /><em>cuidados</em><br />começa aqui.
+            {ref === 'pacote'
+              ? <>Sua jornada de<br /><em>transformação</em><br />começa aqui.</>
+              : <>Agende sua<br />primeira <em>sessão</em><br />hoje.</>
+            }
           </h2>
           <p className="login-image-sub">
-            Crie sua conta e escolha o plano ideal para transformar sua rotina de estética com benefícios exclusivos.
+            {ref === 'pacote'
+              ? 'Crie sua conta e contrate o pacote completo de emagrecimento e hipertrofia com condições exclusivas.'
+              : 'Crie sua conta gratuitamente e comece a agendar seus tratamentos na Depill plus.'
+            }
           </p>
         </div>
       </div>
@@ -79,8 +90,8 @@ export default function CadastroPage() {
       <div className="login-form-side">
         <div className="login-form-inner">
           <div className="login-form-logo">
-            <span className="login-form-logo-text">Lumière</span>
-            <span className="login-form-logo-dot" />
+            <img src="/logo.svg" alt="Depill plus" className="login-form-logo-img" />
+            <span className="login-form-logo-text">Depill plus</span>
           </div>
 
           <div className="login-form-header">
@@ -169,7 +180,7 @@ export default function CadastroPage() {
 
           <p className="login-register-link">
             Já tem conta?{' '}
-            <Link href="/login">Entrar</Link>
+            <Link href={ref === 'pacote' ? `/login?ref=pacote` : '/login'}>Entrar</Link>
           </p>
 
           <Link href="/" className="login-back">
@@ -181,5 +192,13 @@ export default function CadastroPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CadastroPage() {
+  return (
+    <Suspense fallback={null}>
+      <CadastroForm />
+    </Suspense>
   );
 }

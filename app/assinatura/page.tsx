@@ -4,14 +4,20 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { PLANS, type Plan } from '@/lib/subscription-data';
+
+const PACKAGE_ITEMS = [
+  '6 aplicações de enzimas',
+  '4 aplicações de BCAA',
+  '3 Mantas Térmicas',
+  '3 Drenomodeladoras',
+];
 
 export default function AssinaturaPage() {
   const { user, updateUser } = useAuth();
   const router = useRouter();
 
-  const [selected, setSelected] = useState<Plan | null>(null);
-  const [step, setStep]         = useState<'select' | 'payment'>('select');
+  const [step, setStep]             = useState<'confirm' | 'payment'>('confirm');
+  const [payOption, setPayOption]   = useState<'parcelado' | 'avista'>('parcelado');
   const [cardNumber, setCardNumber] = useState('');
   const [cardName, setCardName]     = useState('');
   const [cardExp, setCardExp]       = useState('');
@@ -20,18 +26,10 @@ export default function AssinaturaPage() {
   const [error, setError]           = useState('');
 
   useEffect(() => {
-    if (!user) {
-      router.replace('/cadastro');
-    } else if (user.plan && user.planStatus === 'ativo') {
-      router.replace('/minha-conta');
-    }
+    if (!user) router.replace('/cadastro?ref=pacote');
+    else if (user.role !== 'cliente') router.replace('/agenda');
+    else if (user.plan && user.planStatus === 'ativo') router.replace('/minha-conta');
   }, [user, router]);
-
-  function handleSelectPlan(plan: Plan) {
-    setSelected(plan);
-    setStep('payment');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
 
   function formatCardNumber(val: string) {
     const nums = val.replace(/\D/g, '').slice(0, 16);
@@ -48,32 +46,22 @@ export default function AssinaturaPage() {
     e.preventDefault();
     setError('');
 
-    if (!selected) return;
-    if (cardNumber.replace(/\s/g, '').length < 16) {
-      setError('Número do cartão inválido.');
-      return;
-    }
-    if (cardExp.length < 5) {
-      setError('Data de validade inválida.');
-      return;
-    }
-    if (cardCvv.length < 3) {
-      setError('CVV inválido.');
-      return;
-    }
+    if (cardNumber.replace(/\s/g, '').length < 16) { setError('Número do cartão inválido.'); return; }
+    if (cardExp.length < 5)  { setError('Data de validade inválida.'); return; }
+    if (cardCvv.length < 3)  { setError('CVV inválido.'); return; }
 
     setLoading(true);
     setTimeout(() => {
       const today = new Date();
-      const next = new Date(today);
+      const next  = new Date(today);
       next.setMonth(next.getMonth() + 1);
 
       updateUser({
-        plan: selected.id,
+        plan: 'pacote',
         planStatus: 'ativo',
         subscriptionDate: today.toISOString().split('T')[0],
         nextBillingDate: next.toISOString().split('T')[0],
-        monthlyValue: selected.price,
+        monthlyValue: payOption === 'avista' ? 'R$ 599,90 (à vista)' : '12x de R$ 55,99',
       });
 
       router.push('/minha-conta');
@@ -89,15 +77,15 @@ export default function AssinaturaPage() {
         <div className="container">
           <div className="sub-header-inner">
             <Link href="/" className="sub-logo">
-              <span className="sub-logo-text">Lumière</span>
-              <span className="logo-dot" />
+              <img src="/logo.svg" alt="Depill plus" className="sub-logo-img" />
+              <span className="sub-logo-text">Depill plus</span>
             </Link>
             {step === 'payment' ? (
-              <button className="sub-back-link" onClick={() => setStep('select')}>
+              <button className="sub-back-link" onClick={() => setStep('confirm')}>
                 <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-                Voltar aos planos
+                Voltar ao pacote
               </button>
             ) : (
               <Link href="/" className="sub-back-link">
@@ -111,78 +99,136 @@ export default function AssinaturaPage() {
         </div>
       </header>
 
+      {/* Progress */}
+      <div className="sub-progress-bar">
+        <div className="container">
+          <div className="sub-progress-inner">
+            <div className={`sub-progress-step${step === 'confirm' || step === 'payment' ? ' done' : ''}`}>
+              <span className="sub-progress-num">1</span>
+              <span>Pacote</span>
+            </div>
+            <div className="sub-progress-line" />
+            <div className={`sub-progress-step${step === 'payment' ? ' done' : ''}`}>
+              <span className="sub-progress-num">2</span>
+              <span>Pagamento</span>
+            </div>
+            <div className="sub-progress-line" />
+            <div className="sub-progress-step">
+              <span className="sub-progress-num">3</span>
+              <span>Confirmação</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="container">
         <div className="sub-content">
-          {step === 'select' ? (
-            <>
-              <h1 className="sub-title">
-                Escolha seu <em>plano</em>
-              </h1>
-              <p className="sub-subtitle">
-                Assinatura mensal com cobrança automática no cartão de crédito.
-                Cancele quando quiser.
-              </p>
 
-              <div className="sub-plans">
-                {PLANS.map(plan => (
-                  <div
-                    key={plan.id}
-                    className={`sub-plan-card${plan.popular ? ' popular' : ''}`}
-                  >
-                    {plan.popular && <span className="sub-plan-badge">Recomendado</span>}
-                    <h3 className="sub-plan-name">{plan.name}</h3>
-                    <div className="sub-plan-price">
-                      <span className="sub-plan-price-value">{plan.price}</span>
-                      <span className="sub-plan-price-period">/mês</span>
-                    </div>
-                    <p className="sub-plan-desc">{plan.desc}</p>
-                    <ul className="sub-plan-features">
-                      {plan.features.map(f => (
-                        <li key={f}>
-                          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path d="M20 6L9 17l-5-5" />
-                          </svg>
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      className={`sub-plan-cta${plan.popular ? ' primary' : ''}`}
-                      onClick={() => handleSelectPlan(plan)}
-                    >
-                      Selecionar plano
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="sub-payment-wrap">
-              <div className="sub-payment-summary">
-                <p className="sub-payment-summary-label">Plano selecionado</p>
-                <h3 className="sub-payment-summary-name">{selected?.name}</h3>
-                <div className="sub-payment-summary-price">
-                  <span className="sub-payment-summary-value">{selected?.price}</span>
-                  <span className="sub-payment-summary-period">/mês</span>
-                </div>
-                <ul className="sub-payment-summary-features">
-                  {selected?.features.map(f => (
-                    <li key={f}>
-                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          {/* ── Step 1: Confirm package ── */}
+          {step === 'confirm' && (
+            <div className="sub-pkg-wrap">
+              <div className="sub-pkg-info">
+                <p className="sub-pkg-label">Pacote especial</p>
+                <h1 className="sub-title">
+                  Emagrecimento &<br /><em>Hipertrofia</em>
+                </h1>
+                <p className="sub-subtitle">
+                  Protocolo completo desenvolvido para resultados expressivos em
+                  emagrecimento e definição muscular.
+                </p>
+
+                <ul className="sub-pkg-items">
+                  {PACKAGE_ITEMS.map(item => (
+                    <li key={item}>
+                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path d="M20 6L9 17l-5-5" />
                       </svg>
-                      {f}
+                      {item}
                     </li>
                   ))}
                 </ul>
-                <button className="sub-change-plan" onClick={() => setStep('select')}>
-                  Trocar plano
+              </div>
+
+              <div className="sub-pkg-price-card">
+                <p className="sub-pkg-price-label">Escolha a forma de pagamento</p>
+
+                <div className="sub-pay-options">
+                  <button
+                    className={`sub-pay-option${payOption === 'parcelado' ? ' active' : ''}`}
+                    onClick={() => setPayOption('parcelado')}
+                  >
+                    <div className="sub-pay-option-main">
+                      <span className="sub-pay-option-value">12x de R$ 55,99</span>
+                      <span className="sub-pay-option-badge">No cartão</span>
+                    </div>
+                    <span className="sub-pay-option-total">Total: R$ 671,88</span>
+                  </button>
+
+                  <button
+                    className={`sub-pay-option${payOption === 'avista' ? ' active' : ''}`}
+                    onClick={() => setPayOption('avista')}
+                  >
+                    <div className="sub-pay-option-main">
+                      <span className="sub-pay-option-value">R$ 599,90</span>
+                      <span className="sub-pay-option-badge best">Melhor preço</span>
+                    </div>
+                    <span className="sub-pay-option-total">À vista · Economia de R$ 71,98</span>
+                  </button>
+                </div>
+
+                <button
+                  className="sub-plan-cta primary"
+                  onClick={() => { setStep('payment'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                >
+                  Continuar para pagamento
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </button>
+
+                <p className="sub-secure-note">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                  </svg>
+                  Pagamento seguro com criptografia
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 2: Payment ── */}
+          {step === 'payment' && (
+            <div className="sub-payment-wrap">
+              <div className="sub-payment-summary">
+                <p className="sub-payment-summary-label">Resumo do pedido</p>
+                <h3 className="sub-payment-summary-name">Pacote Emagrecimento e Hipertrofia</h3>
+                <div className="sub-payment-summary-price">
+                  <span className="sub-payment-summary-value">
+                    {payOption === 'avista' ? 'R$ 599,90' : '12x de R$ 55,99'}
+                  </span>
+                </div>
+                <ul className="sub-payment-summary-features">
+                  {PACKAGE_ITEMS.map(item => (
+                    <li key={item}>
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <button className="sub-change-plan" onClick={() => setStep('confirm')}>
+                  Alterar forma de pagamento
                 </button>
               </div>
 
               <form className="sub-payment-form" onSubmit={handleSubmit}>
                 <h2 className="sub-payment-title">Dados do cartão</h2>
-                <p className="sub-payment-sub">Cobrança mensal recorrente. Cancele a qualquer momento.</p>
+                <p className="sub-payment-sub">
+                  {payOption === 'avista'
+                    ? 'Cobrança única de R$ 599,90.'
+                    : 'Primeira parcela cobrada agora. 11 parcelas seguintes mensalmente.'}
+                </p>
 
                 <div className="sub-card-fields">
                   <div className="sub-card-field">
@@ -249,13 +295,11 @@ export default function AssinaturaPage() {
                     disabled={loading}
                   >
                     {loading ? (
-                      <>
-                        <span className="login-spinner" />
-                        Processando...
-                      </>
-                    ) : (
-                      <>Assinar por {selected?.price}/mês</>
-                    )}
+                      <><span className="login-spinner" /> Processando...</>
+                    ) : payOption === 'avista'
+                      ? 'Pagar R$ 599,90'
+                      : 'Pagar 1ª parcela de R$ 55,99'
+                    }
                   </button>
                 </div>
 
@@ -268,6 +312,7 @@ export default function AssinaturaPage() {
               </form>
             </div>
           )}
+
         </div>
       </div>
     </div>
