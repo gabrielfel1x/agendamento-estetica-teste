@@ -38,9 +38,9 @@ export default function MinhaContaPage() {
     setShowCancel(false);
   }
 
-  function handleLogout() {
-    logout();
-    router.push('/');
+  async function handleLogout() {
+    await logout();
+    router.replace('/');
   }
 
   function handleAgendaSaved() {

@@ -74,9 +74,9 @@ export default function SystemSidebar() {
   const pathname = usePathname();
   const router   = useRouter();
 
-  function handleLogout() {
-    logout();
-    router.push('/login');
+  async function handleLogout() {
+    await logout();
+    router.replace('/login');
   }
 
   const visibleItems = NAV_ITEMS.filter(item =>

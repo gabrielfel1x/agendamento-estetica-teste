@@ -1049,6 +1049,59 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 }
 
 /* ═══════════════════════════════════════════════════════════
+   ACESSO INTERNO (staff login)
+═══════════════════════════════════════════════════════════ */
+.acesso-layout {
+  min-height:100vh;
+  background:var(--forest);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 24px;
+}
+.acesso-card {
+  width:100%;
+  max-width:360px;
+  background:var(--ivory);
+  border-radius:8px;
+  padding:48px 44px 44px;
+}
+.acesso-logo {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:40px;
+}
+.acesso-logo-img { width:24px; height:24px; object-fit:contain; flex-shrink:0; }
+.acesso-logo-text {
+  font-family:var(--font-d);
+  font-weight:300;
+  font-size:1.2rem;
+  letter-spacing:.12em;
+  color:var(--forest);
+}
+.acesso-header { margin-bottom:36px; }
+.acesso-title {
+  font-family:var(--font-d);
+  font-size:1.7rem;
+  font-weight:300;
+  color:var(--forest);
+  letter-spacing:.02em;
+  margin-bottom:6px;
+}
+.acesso-sub {
+  font-size:.78rem;
+  font-weight:300;
+  color:var(--text-muted);
+  letter-spacing:.02em;
+}
+.acesso-form { display:flex; flex-direction:column; gap:28px; }
+
+@media(max-width:480px){
+  .acesso-card { padding:36px 28px 32px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
    AGENDA PAGE
 ═══════════════════════════════════════════════════════════ */
 .agenda-page { padding-bottom:80px; }
@@ -1063,6 +1116,8 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 .agenda-add-day-btn { width:28px; height:28px; border-radius:50%; background:var(--emerald-pale); color:var(--emerald); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; }
 .agenda-add-day-btn:hover { background:var(--emerald); color:var(--white); }
 .agenda-slots { overflow-y:auto; max-height:calc(100vh - 240px); }
+.agenda-slots.loading { opacity:.45; pointer-events:none; }
+.admin-loading { padding:48px 24px; text-align:center; font-size:.82rem; font-weight:300; color:var(--text-muted); letter-spacing:.04em; }
 .agenda-slot { display:flex; align-items:center; gap:14px; padding:10px 20px; border-bottom:1px solid var(--border); transition:background .15s; min-height:52px; }
 .agenda-slot:last-child { border-bottom:none; }
 .agenda-slot.avail { opacity:.6; }

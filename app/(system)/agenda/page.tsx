@@ -1,22 +1,27 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { getAppointmentsByDay, getOccupancyByDate, AdminAppointment } from '@/lib/admin-data';
+import { useState, useEffect, useCallback } from 'react';
+import { getAppointmentsByDay, getOccupancyByMonth, AdminAppointment } from '@/lib/admin-data';
 import { ALL_TIMES } from '@/lib/constants';
 import NovoAgendamentoModal from '@/components/system/NovoAgendamentoModal';
 
-const TODAY_STR = '2026-03-04';
-const WEEKDAY_HEADERS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const TODAY = new Date();
+const TODAY_STR = TODAY.toISOString().slice(0, 10);
+const YEAR  = TODAY.getFullYear();
+const MONTH = TODAY.getMonth() + 1;
 
-function formatDateLabel(day: number) {
-  return `2026-03-${String(day).padStart(2, '0')}`;
+const WEEKDAY_HEADERS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function padDate(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
 
 function formatDisplayDate(dateStr: string) {
-  const [, , d] = dateStr.split('-');
+  const [,, d] = dateStr.split('-');
   const days = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
   const date = new Date(dateStr + 'T12:00:00');
-  return `${days[date.getDay()]}, ${parseInt(d)} de março`;
+  return `${days[date.getDay()]}, ${parseInt(d)} de ${MONTH_NAMES[MONTH - 1].toLowerCase()}`;
 }
 
 function getOccupancyLevel(count: number): string {
@@ -26,42 +31,59 @@ function getOccupancyLevel(count: number): string {
   return 'high';
 }
 
-function buildMarchDays(): (number | null)[] {
-  // March 2026 starts on Sunday
-  const days: (number | null)[] = Array.from({ length: 31 }, (_, i) => i + 1);
+function buildMonthDays(year: number, month: number): (number | null)[] {
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const days: (number | null)[] = Array(firstDay).fill(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
   while (days.length % 7 !== 0) days.push(null);
   return days;
 }
 
 function waLink(phone: string, patient: string) {
   const clean = phone.replace(/\D/g, '');
-  const msg = encodeURIComponent(`Olá ${patient}! Entrando em contato da Clínica Lumière.`);
+  const msg = encodeURIComponent(`Olá ${patient}! Entrando em contato da Clínica.`);
   return `https://wa.me/55${clean}?text=${msg}`;
 }
 
 export default function AgendaPage() {
-  const [selectedDay, setSelectedDay]   = useState<number>(4); // today
-  const [modalOpen, setModalOpen]       = useState(false);
-  const [refreshKey, setRefreshKey]     = useState(0);
+  const [selectedDay, setSelectedDay] = useState<number>(TODAY.getDate());
+  const [modalOpen, setModalOpen]     = useState(false);
+  const [refreshKey, setRefreshKey]   = useState(0);
+
+  const [occupancy, setOccupancy]   = useState<Record<string, number>>({});
+  const [dayApts, setDayApts]       = useState<AdminAppointment[]>([]);
+  const [loadingDay, setLoadingDay] = useState(false);
 
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
-  const days       = buildMarchDays();
-  const occupancy  = getOccupancyByDate();
-  const selectedDateStr = formatDateLabel(selectedDay);
-  const dayApts    = getAppointmentsByDay(selectedDateStr);
+  // Carrega ocupação do mês inteiro
+  useEffect(() => {
+    getOccupancyByMonth(YEAR, MONTH).then(setOccupancy);
+  }, [refreshKey]);
 
-  // Build time slots: all times + booked ones
+  // Carrega agendamentos do dia selecionado
+  useEffect(() => {
+    const dateStr = padDate(YEAR, MONTH, selectedDay);
+    setLoadingDay(true);
+    getAppointmentsByDay(dateStr).then(apts => {
+      setDayApts(apts);
+      setLoadingDay(false);
+    });
+  }, [selectedDay, refreshKey]);
+
+  const days = buildMonthDays(YEAR, MONTH);
+  const selectedDateStr = padDate(YEAR, MONTH, selectedDay);
+
   const aptsByTime: Record<string, AdminAppointment> = {};
   for (const a of dayApts) aptsByTime[a.time] = a;
 
   return (
     <div className="admin-section agenda-page">
-      {/* Header */}
       <div className="agenda-header">
         <div>
           <h2 className="admin-section-title">Agenda</h2>
-          <p className="admin-section-sub">Março 2026 · clique em um dia para ver os horários</p>
+          <p className="admin-section-sub">{MONTH_NAMES[MONTH - 1]} {YEAR} · clique em um dia para ver os horários</p>
         </div>
         <button className="agenda-new-btn" onClick={() => setModalOpen(true)}>
           <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -74,19 +96,19 @@ export default function AgendaPage() {
       <div className="agenda-layout">
         {/* Calendar */}
         <div className="admin-cal">
-          <div className="admin-cal-month">Março 2026</div>
+          <div className="admin-cal-month">{MONTH_NAMES[MONTH - 1]} {YEAR}</div>
           <div className="admin-cal-grid">
             {WEEKDAY_HEADERS.map(h => (
               <div key={h} className="admin-cal-wday">{h}</div>
             ))}
             {days.map((d, i) => {
               if (!d) return <div key={`e-${i}`} className="admin-cal-day empty" />;
-              const dateStr  = formatDateLabel(d);
-              const count    = occupancy[dateStr] || 0;
-              const level    = getOccupancyLevel(count);
-              const isToday  = dateStr === TODAY_STR;
-              const isSel    = d === selectedDay;
-              const isPast   = dateStr < TODAY_STR;
+              const dateStr = padDate(YEAR, MONTH, d);
+              const count   = occupancy[dateStr] || 0;
+              const level   = getOccupancyLevel(count);
+              const isToday = dateStr === TODAY_STR;
+              const isSel   = d === selectedDay;
+              const isPast  = dateStr < TODAY_STR;
               return (
                 <button
                   key={d}
@@ -118,7 +140,7 @@ export default function AgendaPage() {
             <h3 className="agenda-day-title">{formatDisplayDate(selectedDateStr)}</h3>
             <div className="agenda-day-actions">
               <span className="admin-day-panel-count">
-                {dayApts.length} {dayApts.length === 1 ? 'agendamento' : 'agendamentos'}
+                {loadingDay ? '...' : `${dayApts.length} ${dayApts.length === 1 ? 'agendamento' : 'agendamentos'}`}
               </span>
               <button
                 className="agenda-add-day-btn"
@@ -132,7 +154,7 @@ export default function AgendaPage() {
             </div>
           </div>
 
-          <div className="agenda-slots">
+          <div className={`agenda-slots${loadingDay ? ' loading' : ''}`}>
             {ALL_TIMES.map(time => {
               const apt = aptsByTime[time];
               return (

@@ -28,7 +28,7 @@ function CadastroForm() {
     }
   }, [user, router, ref]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
@@ -42,15 +42,13 @@ function CadastroForm() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const ok = register(name, email, password);
-      if (ok) {
-        router.push(ref === 'pacote' ? '/assinatura' : '/minha-conta');
-      } else {
-        setError('Este e-mail já está em uso.');
-        setLoading(false);
-      }
-    }, 600);
+    const { error } = await register(name, email, password);
+    if (error) {
+      setError(error);
+      setLoading(false);
+    } else {
+      router.push(ref === 'pacote' ? '/assinatura' : '/minha-conta');
+    }
   }
 
   return (

@@ -20,17 +20,15 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const ok = login(email, password);
-      if (!ok) {
-        setError('E-mail ou senha incorretos.');
-        setLoading(false);
-      }
-    }, 600);
+    const { error } = await login(email, password);
+    if (error) {
+      setError(error);
+      setLoading(false);
+    }
   }
 
   return (
@@ -120,22 +118,6 @@ export default function LoginPage() {
               {loading ? <span className="login-spinner" /> : 'Entrar'}
             </button>
           </form>
-
-          <div className="login-hints">
-            <p className="login-hint-title">Credenciais de demonstração</p>
-            <div className="login-hint-row" onClick={() => { setEmail('admin@depill.com.br'); setPassword('admin123'); }}>
-              <span className="login-hint-badge admin">Admin</span>
-              <span>admin@depill.com.br · admin123</span>
-            </div>
-            <div className="login-hint-row" onClick={() => { setEmail('funcionaria@depill.com.br'); setPassword('123456'); }}>
-              <span className="login-hint-badge func">Funcionária</span>
-              <span>funcionaria@depill.com.br · 123456</span>
-            </div>
-            <div className="login-hint-row" onClick={() => { setEmail('cliente@depill.com.br'); setPassword('cliente1'); }}>
-              <span className="login-hint-badge cliente">Cliente</span>
-              <span>cliente@depill.com.br · cliente1</span>
-            </div>
-          </div>
 
           <p className="login-register-link">
             Ainda não tem conta?{' '}

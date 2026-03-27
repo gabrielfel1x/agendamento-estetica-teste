@@ -1,23 +1,12 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { getAllAppointments, AdminAppointment } from '@/lib/admin-data';
 import {
-  ADMIN_APPOINTMENTS,
-  getTotalRevenue,
-  getTicketMedio,
-  getWeekdayCounts,
-  getNextAppointment,
-} from '@/lib/admin-data';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
-const TODAY = '2026-03-04';
+const TODAY_STR     = new Date().toISOString().slice(0, 10);
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 function fmtCurrency(n: number) {
@@ -35,34 +24,72 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function OverviewSection() {
-  const totalMonth = ADMIN_APPOINTMENTS.filter(a => a.status !== 'cancelado').length;
-  const todayApts  = ADMIN_APPOINTMENTS.filter(a => a.date === TODAY && a.status !== 'cancelado').length;
-  const totalRev   = getTotalRevenue();
-  const next       = getNextAppointment();
-  const counts     = getWeekdayCounts();
-  const maxCount   = Math.max(...counts, 1);
+function computeMetrics(apts: AdminAppointment[]) {
+  const totalMonth  = apts.filter(a => a.status !== 'cancelado').length;
+  const todayApts   = apts.filter(a => a.date === TODAY_STR && a.status !== 'cancelado').length;
+  const confirmed   = apts.filter(a => a.status === 'confirmado');
+  const totalRev    = confirmed.reduce((s, a) => s + a.priceNum, 0);
 
-  const chartData = counts.map((c, i) => ({
-    name: WEEKDAY_LABELS[i],
-    value: c,
-  }));
+  const upcoming = apts
+    .filter(a => a.date >= TODAY_STR && a.status !== 'cancelado')
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const next = upcoming[0] || null;
+
+  const weekCounts = [0, 0, 0, 0, 0, 0];
+  for (const a of apts) {
+    if (a.status === 'cancelado') continue;
+    const wd = new Date(a.date + 'T12:00:00').getDay();
+    if (wd >= 1 && wd <= 6) weekCounts[wd - 1]++;
+  }
+
+  return { totalMonth, todayApts, totalRev, next, weekCounts };
+}
+
+export default function OverviewSection() {
+  const [apts, setApts]       = useState<AdminAppointment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAllAppointments().then(data => {
+      setApts(data);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="admin-section">
+        <div className="admin-section-header">
+          <h2 className="admin-section-title">Visão Geral</h2>
+        </div>
+        <div className="admin-loading">Carregando dados...</div>
+      </div>
+    );
+  }
+
+  const { totalMonth, todayApts, totalRev, next, weekCounts } = computeMetrics(apts);
+  const maxCount  = Math.max(...weekCounts, 1);
+  const chartData = weekCounts.map((c, i) => ({ name: WEEKDAY_LABELS[i], value: c }));
+
+  const todayLabel = new Date(TODAY_STR + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  const monthLabel = new Date(TODAY_STR + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const metrics = [
-    { label: 'Agendamentos no mês', value: String(totalMonth), sub: 'março 2026', accent: false },
-    { label: 'Receita acumulada', value: fmtCurrency(totalRev), sub: 'confirmados', accent: true },
-    { label: 'Agendamentos hoje', value: String(todayApts), sub: '4 de março', accent: false },
-    { label: 'Próximo horário', value: next ? next.time : '—', sub: next ? next.patient : 'nenhum', accent: false },
+    { label: 'Agendamentos no mês',  value: String(totalMonth),    sub: monthLabel,                    accent: false },
+    { label: 'Receita acumulada',    value: fmtCurrency(totalRev), sub: 'confirmados',                 accent: true  },
+    { label: 'Agendamentos hoje',    value: String(todayApts),     sub: todayLabel,                    accent: false },
+    { label: 'Próximo horário',      value: next ? next.time : '—', sub: next ? next.patient : 'nenhum', accent: false },
   ];
+
+  const recent = [...apts].reverse().slice(0, 6);
 
   return (
     <div className="admin-section">
       <div className="admin-section-header">
         <h2 className="admin-section-title">Visão Geral</h2>
-        <p className="admin-section-sub">Março 2026 · atualizado agora</p>
+        <p className="admin-section-sub">{monthLabel} · atualizado agora</p>
       </div>
 
-      {/* Metric cards */}
       <div className="admin-metrics-grid">
         {metrics.map((m, i) => (
           <div key={i} className={`admin-metric-card${m.accent ? ' accent' : ''}`}>
@@ -73,11 +100,10 @@ export default function OverviewSection() {
         ))}
       </div>
 
-      {/* Bar chart — Recharts */}
       <div className="admin-chart-wrap">
         <div className="admin-chart-header">
           <h3 className="admin-chart-title">Agendamentos por dia da semana</h3>
-          <p className="admin-chart-sub">março 2026 — confirmados + pendentes</p>
+          <p className="admin-chart-sub">{monthLabel} — confirmados + pendentes</p>
         </div>
         <div className="admin-chart-body" style={{ width: '100%', height: 280 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -113,11 +139,10 @@ export default function OverviewSection() {
         </div>
       </div>
 
-      {/* Recent list */}
       <div className="admin-recent-wrap">
         <h3 className="admin-recent-title">Agendamentos recentes</h3>
         <div className="admin-recent-list">
-          {ADMIN_APPOINTMENTS.slice(0, 6).map(a => (
+          {recent.map(a => (
             <div key={a.id} className="admin-recent-row">
               <span className="admin-recent-time">{a.time}</span>
               <span className="admin-recent-name">{a.patient}</span>

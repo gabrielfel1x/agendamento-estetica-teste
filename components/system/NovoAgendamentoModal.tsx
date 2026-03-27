@@ -18,8 +18,9 @@ const EMPTY = {
 };
 
 export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onSaved }: Props) {
-  const [form, setForm] = useState({ ...EMPTY });
-  const [error, setError] = useState('');
+  const [form, setForm]       = useState({ ...EMPTY });
+  const [error, setError]     = useState('');
+  const [saving, setSaving]   = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -33,7 +34,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  // Auto-fill value from procedure
   useEffect(() => {
     const proc = PROCEDURE_CATALOG[form.procedure];
     if (proc) setForm(f => ({ ...f, value: proc.price }));
@@ -43,11 +43,15 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
     setForm(f => ({ ...f, [key]: val }));
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim()) { setError('Informe o nome do cliente.'); return; }
     if (!form.date)         { setError('Selecione uma data.'); return; }
     if (!form.time)         { setError('Selecione um horário.'); return; }
-    addAppointment({
+
+    setSaving(true);
+    setError('');
+
+    const result = await addAppointment({
       patient:   form.name.trim(),
       phone:     form.phone.replace(/\D/g, ''),
       procedure: PROCEDURE_CATALOG[form.procedure].name,
@@ -57,6 +61,14 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
       time:      form.time,
       status:    'confirmado',
     });
+
+    setSaving(false);
+
+    if (!result) {
+      setError('Erro ao salvar agendamento. Tente novamente.');
+      return;
+    }
+
     onSaved?.();
     onClose();
   }
@@ -80,7 +92,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
 
         <div className="na-modal-body">
           <div className="na-grid">
-            {/* Nome */}
             <div className="na-field na-field-full">
               <label className="na-label">Nome do cliente *</label>
               <input
@@ -91,7 +102,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               />
             </div>
 
-            {/* Telefone */}
             <div className="na-field">
               <label className="na-label">Telefone</label>
               <input
@@ -102,7 +112,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               />
             </div>
 
-            {/* Procedimento */}
             <div className="na-field">
               <label className="na-label">Procedimento *</label>
               <select
@@ -116,7 +125,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               </select>
             </div>
 
-            {/* Data */}
             <div className="na-field">
               <label className="na-label">Data *</label>
               <input
@@ -127,7 +135,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               />
             </div>
 
-            {/* Horário */}
             <div className="na-field">
               <label className="na-label">Horário *</label>
               <select
@@ -140,7 +147,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               </select>
             </div>
 
-            {/* Pagamento */}
             <div className="na-field">
               <label className="na-label">Forma de pagamento</label>
               <select
@@ -152,7 +158,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               </select>
             </div>
 
-            {/* Valor */}
             <div className="na-field">
               <label className="na-label">Valor</label>
               <input
@@ -163,7 +168,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               />
             </div>
 
-            {/* Observações */}
             <div className="na-field na-field-full">
               <label className="na-label">Observações</label>
               <textarea
@@ -187,12 +191,16 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
         </div>
 
         <div className="na-modal-footer">
-          <button className="na-cancel" onClick={onClose}>Cancelar</button>
-          <button className="na-save" onClick={handleSave}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            Salvar agendamento
+          <button className="na-cancel" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button className="na-save" onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <span className="login-spinner" style={{ width: 14, height: 14 }} />
+            ) : (
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            )}
+            {saving ? 'Salvando...' : 'Salvar agendamento'}
           </button>
         </div>
       </div>

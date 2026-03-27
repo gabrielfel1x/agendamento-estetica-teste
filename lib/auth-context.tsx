@@ -1,6 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { ProfileRow } from '@/lib/supabase/types';
 
 export interface User {
   id: string;
@@ -16,82 +18,110 @@ export interface User {
 
 interface AuthCtx {
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
-  register: (name: string, email: string, password: string) => boolean;
-  updateUser: (updates: Partial<User>) => void;
+  login: (email: string, password: string) => Promise<{ error: string | null }>;
+  logout: () => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<{ error: string | null }>;
+  updateUser: (updates: Partial<User>) => Promise<void>;
 }
-
-interface MockUser extends User {
-  password: string;
-}
-
-const MOCK_USERS: MockUser[] = [
-  { id: '1', name: 'Dra. Ana Souza',   email: 'admin@depill.com.br',      password: 'admin123', role: 'admin' },
-  { id: '2', name: 'Clara Mendes',     email: 'funcionaria@depill.com.br', password: '123456',   role: 'funcionario' },
-  { id: '3', name: 'Ana Paula Mendes', email: 'cliente@depill.com.br',     password: 'cliente1', role: 'cliente', plan: 'pacote', planStatus: 'ativo', subscriptionDate: '2026-01-15', nextBillingDate: '2026-04-15', monthlyValue: 'R$ 599,90' },
-];
 
 const AuthContext = createContext<AuthCtx>({
   user: null,
-  login: () => false,
-  logout: () => {},
-  register: () => false,
-  updateUser: () => {},
+  login: async () => ({ error: null }),
+  logout: async () => {},
+  register: async () => ({ error: null }),
+  updateUser: async () => {},
 });
-
-const STORAGE_KEY = 'depill_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const supabase = useMemo(() => createClient(), []);
+
+  async function fetchProfile(id: string, email: string) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', id)
+      .single() as { data: ProfileRow | null; error: unknown };
+
+    if (data) {
+      setUser({
+        id: data.id,
+        name: data.name,
+        email,
+        role: data.role,
+        plan: data.plan ?? undefined,
+        planStatus: data.plan_status ?? undefined,
+        subscriptionDate: data.subscription_date ?? undefined,
+        nextBillingDate: data.next_billing_date ?? undefined,
+        monthlyValue: data.monthly_value ?? undefined,
+      });
+    }
+    setLoaded(true);
+  }
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setUser(JSON.parse(saved));
-    } catch {}
-    setLoaded(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchProfile(session.user.id, session.user.email ?? '');
+      } else {
+        setLoaded(true);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          await fetchProfile(session.user.id, session.user.email ?? '');
+        } else {
+          setUser(null);
+          setLoaded(true);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  function login(email: string, password: string): boolean {
-    const found = MOCK_USERS.find(u => u.email === email && u.password === password);
-    if (!found) return false;
-    const { password: _, ...u } = found;
-    setUser(u);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    return true;
+  async function login(email: string, password: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: 'E-mail ou senha incorretos.' };
+    return { error: null };
   }
 
-  function register(name: string, email: string, password: string): boolean {
-    const exists = MOCK_USERS.find(u => u.email === email);
-    if (exists) return false;
-    const newUser: MockUser = {
-      id: String(Date.now()),
-      name,
+  async function register(name: string, email: string, password: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signUp({
       email,
       password,
-      role: 'cliente',
-    };
-    MOCK_USERS.push(newUser);
-    const { password: _, ...u } = newUser;
-    setUser(u);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    return true;
-  }
-
-  function updateUser(updates: Partial<User>) {
-    setUser(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, ...updates };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
+      options: { data: { name, role: 'cliente' } },
     });
+    if (error) {
+      if (error.message.toLowerCase().includes('already')) return { error: 'Este e-mail já está em uso.' };
+      return { error: error.message };
+    }
+    return { error: null };
   }
 
-  function logout() {
-    setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
+  async function updateUser(updates: Partial<User>): Promise<void> {
+    if (!user) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const profileUpdates: Record<string, any> = {};
+    if (updates.name !== undefined)              profileUpdates.name               = updates.name;
+    if (updates.plan !== undefined)              profileUpdates.plan               = updates.plan;
+    if (updates.planStatus !== undefined)        profileUpdates.plan_status        = updates.planStatus;
+    if (updates.subscriptionDate !== undefined)  profileUpdates.subscription_date  = updates.subscriptionDate;
+    if (updates.nextBillingDate !== undefined)   profileUpdates.next_billing_date  = updates.nextBillingDate;
+    if (updates.monthlyValue !== undefined)      profileUpdates.monthly_value      = updates.monthlyValue;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('profiles') as any).update(profileUpdates).eq('id', user.id);
+    setUser(prev => prev ? { ...prev, ...updates } : prev);
+  }
+
+  async function logout(): Promise<void> {
+    await supabase.auth.signOut();
+    // onAuthStateChange cuida de setar user = null
   }
 
   if (!loaded) return null;
