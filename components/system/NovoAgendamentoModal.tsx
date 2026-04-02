@@ -18,6 +18,19 @@ const EMPTY = {
   name: '', phone: '', procedure: 0, date: '', time: '', payment: 'Pix', value: '', obs: '',
 };
 
+function getNowStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isTimePast(dateStr: string, time: string) {
+  const now = new Date();
+  if (dateStr !== now.toISOString().slice(0, 10)) return dateStr < now.toISOString().slice(0, 10);
+  const [h, m] = time.split(':').map(Number);
+  const slotMin = h * 60 + m;
+  const nowMin  = now.getHours() * 60 + now.getMinutes() + 30; // 30 min de antecedência
+  return slotMin <= nowMin;
+}
+
 export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onSaved }: Props) {
   const [form, setForm]       = useState({ ...EMPTY });
   const [error, setError]     = useState('');
@@ -49,6 +62,8 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
     if (!form.name.trim()) { setError('Informe o nome do cliente.'); return; }
     if (!form.date)         { setError('Selecione uma data.'); return; }
     if (!form.time)         { setError('Selecione um horário.'); return; }
+    if (form.date < getNowStr()) { setError('Não é possível agendar em uma data passada.'); return; }
+    if (isTimePast(form.date, form.time)) { setError('Este horário já passou. Selecione outro.'); return; }
 
     setSaving(true);
     setError('');
@@ -132,8 +147,9 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
               <input
                 className="na-input"
                 type="date"
+                min={getNowStr()}
                 value={form.date}
-                onChange={e => set('date', e.target.value)}
+                onChange={e => { set('date', e.target.value); set('time', ''); }}
               />
             </div>
 
@@ -145,7 +161,9 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
                 onChange={e => set('time', e.target.value)}
               >
                 <option value="">Selecione</option>
-                {ALL_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                {ALL_TIMES
+                  .filter(t => !isTimePast(form.date, t))
+                  .map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
 

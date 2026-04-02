@@ -81,19 +81,7 @@ export default function MinhaContaPage() {
     setTimeout(() => setAgendaSaved(false), 4000);
   }
 
-  if (!user) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--ivory)' }}>
-        <span className="login-spinner" />
-      </div>
-    );
-  }
-
-  const hasPacote  = !!user.plan;
-  const statusLabel = user.planStatus === 'ativo' ? 'Ativo' : user.planStatus === 'pendente' ? 'Pendente' : 'Cancelado';
-  const statusClass = user.planStatus || 'ativo';
-
-  // Separa próximos vs passados
+  // Separa próximos vs passados (hooks devem rodar antes de qualquer return)
   const upcoming = useMemo(() =>
     apts
       .filter(a => isUpcoming(a.date) && a.status !== 'cancelado')
@@ -106,6 +94,18 @@ export default function MinhaContaPage() {
       .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)),
     [apts]
   );
+
+  if (!user) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--ivory)' }}>
+        <span className="login-spinner" />
+      </div>
+    );
+  }
+
+  const hasPacote  = !!user.plan;
+  const statusLabel = user.planStatus === 'ativo' ? 'Ativo' : user.planStatus === 'pendente' ? 'Pendente' : 'Cancelado';
+  const statusClass = user.planStatus || 'ativo';
 
   return (
     <div className="cd-layout">

@@ -11,8 +11,27 @@ interface Props {
   onSaved?: () => void;
 }
 
-const TODAY_STR = new Date().toISOString().slice(0, 10);
 const WEEKDAYS  = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+/** Retorna a data e hora atuais em tempo real */
+function getNow() {
+  const n = new Date();
+  return {
+    dateStr: n.toISOString().slice(0, 10),
+    hours: n.getHours(),
+    minutes: n.getMinutes(),
+  };
+}
+
+/** Verifica se um horário já passou (ou está a menos de 30min) para determinada data */
+function isTimePast(dateStr: string, time: string) {
+  const { dateStr: todayStr, hours, minutes } = getNow();
+  if (dateStr !== todayStr) return false;
+  const [h, m] = time.split(':').map(Number);
+  const slotMin = h * 60 + m;
+  const nowMin  = hours * 60 + minutes + 30; // 30 min de antecedência
+  return slotMin <= nowMin;
+}
 const MONTHS_PT = [
   'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
@@ -83,7 +102,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   function isDisabled(d: number) {
     const ds  = toDateStr(d);
     const dow = new Date(`${ds}T12:00:00`).getDay();
-    return ds < TODAY_STR || dow === 0;
+    return ds < getNow().dateStr || dow === 0;
   }
 
   const canGoPrev = calYear > now.getFullYear() || calMonth > now.getMonth();
@@ -109,6 +128,11 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   async function handleConfirm() {
     if (!selectedDate) { setError('Selecione uma data.'); return; }
     if (!selectedTime) { setError('Selecione um horário disponível.'); return; }
+    if (isTimePast(selectedDate, selectedTime)) {
+      setError('Este horário já passou. Selecione outro horário.');
+      setSelectedTime('');
+      return;
+    }
 
     setSaving(true);
     const result = await addAppointment({
@@ -215,7 +239,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
                     if (!d) return <div key={`e-${i}`} className="clt-cal-day empty" />;
                     const disabled = isDisabled(d);
                     const selected = toDateStr(d) === selectedDate;
-                    const isToday  = toDateStr(d) === TODAY_STR;
+                    const isToday  = toDateStr(d) === getNow().dateStr;
                     return (
                       <button
                         key={d}
@@ -238,14 +262,16 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
                   <>
                     <div className="clt-times-grid">
                       {ALL_TIMES.map(t => {
-                        const busy = bookedTimes.has(t);
-                        const sel  = t === selectedTime;
+                        const busy    = bookedTimes.has(t);
+                        const passed  = isTimePast(selectedDate, t);
+                        const blocked = busy || passed;
+                        const sel     = t === selectedTime;
                         return (
                           <button
                             key={t}
-                            disabled={busy}
+                            disabled={blocked}
                             onClick={() => { setSelectedTime(t); setError(''); }}
-                            className={['clt-time', busy ? 'busy' : 'avail', sel ? 'selected' : ''].filter(Boolean).join(' ')}
+                            className={['clt-time', blocked ? 'busy' : 'avail', sel ? 'selected' : ''].filter(Boolean).join(' ')}
                           >
                             {t}
                           </button>
