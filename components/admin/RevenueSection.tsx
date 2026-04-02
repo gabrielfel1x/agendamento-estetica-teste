@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getAllAppointments, AdminAppointment } from '@/lib/admin-data';
+import { createStaffClient } from '@/lib/supabase/client';
 
 type Period = 'semana' | 'mes' | 'trimestre';
 
@@ -74,9 +75,10 @@ export default function RevenueSection() {
   const [period, setPeriod]   = useState<Period>('mes');
   const [apts, setApts]       = useState<AdminAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const staffClient = useMemo(() => createStaffClient(), []);
 
   useEffect(() => {
-    getAllAppointments().then(data => {
+    getAllAppointments(staffClient).then(data => {
       setApts(data);
       setLoading(false);
     });

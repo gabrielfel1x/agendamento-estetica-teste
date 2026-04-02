@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import AgendarSessaoModal from '@/components/system/AgendarSessaoModal';
+import { getClientAppointments, AdminAppointment } from '@/lib/admin-data';
 
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -21,17 +22,35 @@ const PACKAGE_ITEMS = [
   '3 Drenomodeladoras',
 ];
 
+const MONTHS_APT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function fmtAptDate(d: string) {
+  const [y, m, day] = d.split('-');
+  return `${parseInt(day)} ${MONTHS_APT[parseInt(m)-1]}. ${y}`;
+}
+
 export default function MinhaContaPage() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, loaded, updateUser, logout } = useAuth();
   const router = useRouter();
   const [showCancel, setShowCancel]       = useState(false);
   const [showAgenda, setShowAgenda]       = useState(false);
   const [agendaSaved, setAgendaSaved]     = useState(false);
+  const [apts, setApts]                   = useState<AdminAppointment[]>([]);
+  const [loadingApts, setLoadingApts]     = useState(false);
 
+  // Só redireciona após auth carregar — evita redirect no reload
   useEffect(() => {
-    if (!user) router.replace('/login');
-    else if (user.role !== 'cliente') router.replace('/agenda');
-  }, [user, router]);
+    if (loaded && !user) router.replace('/login');
+  }, [loaded, user, router]);
+
+  // Carrega agendamentos do cliente logado
+  useEffect(() => {
+    if (!user) return;
+    setLoadingApts(true);
+    getClientAppointments(user.id).then(data => {
+      setApts(data);
+      setLoadingApts(false);
+    });
+  }, [user?.id]);
 
   function handleCancel() {
     updateUser({ planStatus: 'cancelado' });
@@ -49,7 +68,13 @@ export default function MinhaContaPage() {
     setTimeout(() => setAgendaSaved(false), 4000);
   }
 
-  if (!user || user.role !== 'cliente') return null;
+  if (!user) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--ivory)' }}>
+        <span className="login-spinner" />
+      </div>
+    );
+  }
 
   const hasPacote  = !!user.plan;
   const statusLabel = user.planStatus === 'ativo' ? 'Ativo' : user.planStatus === 'pendente' ? 'Pendente' : 'Cancelado';
@@ -183,6 +208,27 @@ export default function MinhaContaPage() {
               </Link>
             </div>
           )}
+
+          {/* ── Histórico de agendamentos ── */}
+          <div className="cd-history">
+            <h3 className="cd-history-title">Meus agendamentos</h3>
+            {loadingApts ? (
+              <p className="cd-history-empty">Carregando...</p>
+            ) : apts.length === 0 ? (
+              <p className="cd-history-empty">Nenhum agendamento encontrado.</p>
+            ) : (
+              <div className="cd-history-list">
+                {apts.map(a => (
+                  <div key={a.id} className="cd-history-row">
+                    <span className="cd-history-date">{fmtAptDate(a.date)} · {a.time}</span>
+                    <span className="cd-history-proc">{a.procedure}</span>
+                    <span className="cd-history-price">{a.price}</span>
+                    <span className={`admin-day-badge ${a.status}`}>{a.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* ── Actions ── */}
           <div className="cd-actions">

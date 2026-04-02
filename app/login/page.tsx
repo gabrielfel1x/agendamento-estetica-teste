@@ -15,8 +15,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'cliente') router.replace('/minha-conta');
-      else router.replace('/agenda');
+      router.replace('/minha-conta');
     }
   }, [user, router]);
 

@@ -18,6 +18,7 @@ export interface User {
 
 interface AuthCtx {
   user: User | null;
+  loaded: boolean;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<{ error: string | null }>;
@@ -26,57 +27,107 @@ interface AuthCtx {
 
 const AuthContext = createContext<AuthCtx>({
   user: null,
+  loaded: false,
   login: async () => ({ error: null }),
   logout: async () => {},
   register: async () => ({ error: null }),
   updateUser: async () => {},
 });
 
+// Extrai o role do JWT (app_metadata tem prioridade pois é definido pelo servidor)
+function roleFromJwt(u: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> }): User['role'] {
+  return (
+    (u.app_metadata?.role as User['role']) ||
+    (u.user_metadata?.role as User['role']) ||
+    'cliente'
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loaded, setLoaded] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
-  async function fetchProfile(id: string, email: string) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .single() as { data: ProfileRow | null; error: unknown };
+  // Enriquece o usuário com dados do DB (role real, plano, etc.)
+  // Roda em background — o usuário já está definido pelo JWT antes desta chamada
+  async function enrichFromProfile(id: string, email: string) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (data) {
-      setUser({
-        id: data.id,
-        name: data.name,
-        email,
-        role: data.role,
-        plan: data.plan ?? undefined,
-        planStatus: data.plan_status ?? undefined,
-        subscriptionDate: data.subscription_date ?? undefined,
-        nextBillingDate: data.next_billing_date ?? undefined,
-        monthlyValue: data.monthly_value ?? undefined,
-      });
+      if (error) {
+        console.warn('[auth] profile fetch error:', error.message, '— mantendo dados do JWT');
+        // Tenta criar o perfil se não existir (requer política INSERT)
+        if (error.code === 'PGRST116') {
+          setUser(prev => {
+            if (!prev) return prev;
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            (supabase.from('profiles') as unknown as { upsert: (v: unknown, o: unknown) => Promise<unknown> })
+              .upsert({ id, name: prev.name, role: prev.role }, { onConflict: 'id' });
+            return prev;
+          });
+        }
+        return;
+      }
+
+      if (data) {
+        console.log('[auth] profile OK, role =', data.role);
+        const d = data as ProfileRow;
+        setUser({
+          id: d.id,
+          name: d.name,
+          email,
+          role: d.role as User['role'],
+          plan: d.plan ?? undefined,
+          planStatus: (d.plan_status as User['planStatus']) ?? undefined,
+          subscriptionDate: d.subscription_date ?? undefined,
+          nextBillingDate: d.next_billing_date ?? undefined,
+          monthlyValue: d.monthly_value ?? undefined,
+        });
+      }
+    } catch (err) {
+      console.warn('[auth] enrichFromProfile caught:', err instanceof Error ? err.message : err);
     }
-    setLoaded(true);
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchProfile(session.user.id, session.user.email ?? '');
-      } else {
-        setLoaded(true);
-      }
-    });
+    console.log('[auth] init');
+    let resolved = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          await fetchProfile(session.user.id, session.user.email ?? '');
-        } else {
+      (event, session) => {
+        console.log('[auth] event:', event, '|', session?.user?.email ?? 'no-user');
+
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          if (event === 'INITIAL_SESSION' && resolved) return;
+          resolved = true;
+
+          if (session?.user) {
+            const u = session.user;
+            // Fase 1: define usuário imediatamente a partir do JWT (sem esperar DB)
+            const initialUser: User = {
+              id: u.id,
+              email: u.email ?? '',
+              name: (u.user_metadata?.name as string) || (u.email ?? '').split('@')[0],
+              role: roleFromJwt(u),
+            };
+            console.log('[auth] user from JWT, role =', initialUser.role);
+            setUser(initialUser);
+            setLoaded(true);
+            // Fase 2: enriquece com dados reais do perfil em background
+            enrichFromProfile(u.id, u.email ?? '');
+          } else {
+            setUser(null);
+            setLoaded(true);
+          }
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setLoaded(true);
         }
+        // TOKEN_REFRESHED, USER_UPDATED, etc. ignorados intencionalmente
       }
     );
 
@@ -124,10 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // onAuthStateChange cuida de setar user = null
   }
 
-  if (!loaded) return null;
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, updateUser }}>
+    <AuthContext.Provider value={{ user, loaded, login, logout, register, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

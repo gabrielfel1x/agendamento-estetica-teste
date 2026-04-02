@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 
 export default function AcessoPage() {
-  const { user, login } = useAuth();
+  const { user, login } = useAdminAuth();
   const router = useRouter();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -14,11 +14,7 @@ export default function AcessoPage() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'cliente') {
-        setError('Acesso restrito. Esta área é exclusiva para funcionárias.');
-      } else {
-        router.replace('/agenda');
-      }
+      router.replace('/agenda');
     }
   }, [user, router]);
 

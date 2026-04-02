@@ -1,10 +1,10 @@
 'use client';
 
-import { useAuth } from '@/lib/auth-context';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 import SettingsSection from '@/components/admin/SettingsSection';
 
 export default function ConfiguracoesPage() {
-  const { user } = useAuth();
+  const { user } = useAdminAuth();
 
   if (user?.role !== 'admin') {
     return (

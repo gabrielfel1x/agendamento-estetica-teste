@@ -11,7 +11,7 @@ interface Props {
   onSaved?: () => void;
 }
 
-const TODAY_STR = '2026-03-20';
+const TODAY_STR = new Date().toISOString().slice(0, 10);
 const WEEKDAYS  = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MONTHS_PT = [
   'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
@@ -32,22 +32,28 @@ function buildCalendar(year: number, month: number): (number | null)[] {
 export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) {
   const { user } = useAuth();
 
+  const now = new Date();
   const [step,         setStep]         = useState<'procedure' | 'datetime'>('procedure');
   const [procIdx,      setProcIdx]      = useState(0);
-  const [calYear,      setCalYear]      = useState(2026);
-  const [calMonth,     setCalMonth]     = useState(2); // março
+  const [calYear,      setCalYear]      = useState(now.getFullYear());
+  const [calMonth,     setCalMonth]     = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [bookedTimes,  setBookedTimes]  = useState<Set<string>>(new Set());
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [error,        setError]        = useState('');
+  const [saving,       setSaving]       = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      const n = new Date();
       setStep('procedure');
       setProcIdx(0);
-      setCalYear(2026);
-      setCalMonth(2);
+      setCalYear(n.getFullYear());
+      setCalMonth(n.getMonth());
       setSelectedDate('');
       setSelectedTime('');
+      setBookedTimes(new Set());
       setError('');
     }
   }, [isOpen]);
@@ -57,18 +63,18 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
+  // Carrega horários ocupados quando data muda
+  useEffect(() => {
+    if (!selectedDate) { setBookedTimes(new Set()); return; }
+    setLoadingSlots(true);
+    getAppointmentsByDay(selectedDate).then(apts => {
+      setBookedTimes(new Set(apts.filter(a => a.status !== 'cancelado').map(a => a.time)));
+      setLoadingSlots(false);
+    });
+  }, [selectedDate]);
+
   const procedure = PROCEDURE_CATALOG[procIdx];
   const calDays   = useMemo(() => buildCalendar(calYear, calMonth), [calYear, calMonth]);
-
-  // Horários já reservados para a data selecionada
-  const bookedTimes = useMemo<Set<string>>(() => {
-    if (!selectedDate) return new Set();
-    return new Set(
-      getAppointmentsByDay(selectedDate)
-        .filter(a => a.status !== 'cancelado')
-        .map(a => a.time)
-    );
-  }, [selectedDate]);
 
   function toDateStr(d: number) {
     return `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
@@ -77,10 +83,10 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   function isDisabled(d: number) {
     const ds  = toDateStr(d);
     const dow = new Date(`${ds}T12:00:00`).getDay();
-    return ds < TODAY_STR || dow === 0; // passado ou domingo
+    return ds < TODAY_STR || dow === 0;
   }
 
-  const canGoPrev = calYear > 2026 || calMonth > 2; // não navegar antes de março 2026
+  const canGoPrev = calYear > now.getFullYear() || calMonth > now.getMonth();
 
   function prevMonth() {
     if (!canGoPrev) return;
@@ -100,11 +106,12 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     setError('');
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!selectedDate) { setError('Selecione uma data.'); return; }
     if (!selectedTime) { setError('Selecione um horário disponível.'); return; }
 
-    addAppointment({
+    setSaving(true);
+    const result = await addAppointment({
       patient:   user!.name,
       phone:     '',
       procedure: procedure.name,
@@ -113,7 +120,10 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
       date:      selectedDate,
       time:      selectedTime,
       status:    'confirmado',
-    });
+    }, user!.id);
+    setSaving(false);
+
+    if (!result) { setError('Erro ao confirmar agendamento. Tente novamente.'); return; }
 
     onSaved?.();
     onClose();
@@ -125,7 +135,6 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     <div className="na-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="na-modal clt-modal">
 
-        {/* ── Header ── */}
         <div className="na-modal-header">
           <div>
             <h2 className="na-modal-title">
@@ -144,7 +153,6 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
           </button>
         </div>
 
-        {/* ── Progress ── */}
         <div className="clt-progress">
           <div className={`clt-step ${step === 'procedure' ? 'active' : 'done'}`}>
             <span className="clt-step-num">
@@ -163,7 +171,6 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
 
         <div className="na-modal-body">
 
-          {/* ══ STEP 1 — Procedimentos ══ */}
           {step === 'procedure' && (
             <div className="clt-proc-list">
               {PROCEDURE_CATALOG.map((p, i) => (
@@ -184,11 +191,8 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
             </div>
           )}
 
-          {/* ══ STEP 2 — Data + Horário ══ */}
           {step === 'datetime' && (
             <div className="clt-datetime">
-
-              {/* Calendário */}
               <div className="clt-cal">
                 <div className="clt-cal-nav-row">
                   <button className="clt-cal-arrow" onClick={prevMonth} disabled={!canGoPrev}>
@@ -217,12 +221,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
                         key={d}
                         disabled={disabled}
                         onClick={() => selectDay(d)}
-                        className={[
-                          'clt-cal-day',
-                          disabled ? 'disabled' : '',
-                          selected  ? 'selected'  : '',
-                          isToday   ? 'today'     : '',
-                        ].filter(Boolean).join(' ')}
+                        className={['clt-cal-day', disabled ? 'disabled' : '', selected ? 'selected' : '', isToday ? 'today' : ''].filter(Boolean).join(' ')}
                       >
                         {d}
                       </button>
@@ -231,12 +230,11 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
                 </div>
               </div>
 
-              {/* Horários */}
               <div className="clt-times">
                 <p className="clt-times-title">
-                  {selectedDate ? 'Horários disponíveis' : 'Selecione uma data'}
+                  {selectedDate ? (loadingSlots ? 'Carregando...' : 'Horários disponíveis') : 'Selecione uma data'}
                 </p>
-                {selectedDate ? (
+                {selectedDate && !loadingSlots ? (
                   <>
                     <div className="clt-times-grid">
                       {ALL_TIMES.map(t => {
@@ -259,6 +257,8 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
                       <span><span className="clt-legend busy" />Ocupado</span>
                     </div>
                   </>
+                ) : selectedDate && loadingSlots ? (
+                  <p className="clt-times-hint">Verificando disponibilidade...</p>
                 ) : (
                   <p className="clt-times-hint">← Clique em um dia no calendário</p>
                 )}
@@ -278,7 +278,6 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
           )}
         </div>
 
-        {/* ── Footer ── */}
         <div className="na-modal-footer">
           {step === 'procedure' ? (
             <>
@@ -292,7 +291,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
             </>
           ) : (
             <>
-              <button className="na-cancel" onClick={() => { setStep('procedure'); setError(''); }}>
+              <button className="na-cancel" onClick={() => { setStep('procedure'); setError(''); }} disabled={saving}>
                 <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
@@ -301,12 +300,16 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
               <button
                 className="na-save"
                 onClick={handleConfirm}
-                disabled={!selectedDate || !selectedTime}
+                disabled={!selectedDate || !selectedTime || saving}
               >
-                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                Confirmar agendamento
+                {saving ? (
+                  <span className="login-spinner" style={{ width: 14, height: 14 }} />
+                ) : (
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                )}
+                {saving ? 'Confirmando...' : 'Confirmar agendamento'}
               </button>
             </>
           )}

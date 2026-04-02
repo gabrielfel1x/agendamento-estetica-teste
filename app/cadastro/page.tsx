@@ -20,11 +20,7 @@ function CadastroForm() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'cliente') {
-        router.replace(user.plan ? '/minha-conta' : (ref === 'pacote' ? '/assinatura' : '/minha-conta'));
-      } else {
-        router.replace('/agenda');
-      }
+      router.replace(user.plan ? '/minha-conta' : (ref === 'pacote' ? '/assinatura' : '/minha-conta'));
     }
   }, [user, router, ref]);
 

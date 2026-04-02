@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface AdminAppointment {
   id: string
@@ -27,28 +28,33 @@ function rowToAppointment(row: any): AdminAppointment {
   }
 }
 
-export async function getAppointmentsByDay(dateStr: string): Promise<AdminAppointment[]> {
-  const supabase = createClient()
-  const { data } = await supabase
+export async function getAppointmentsByDay(dateStr: string, client?: SupabaseClient): Promise<AdminAppointment[]> {
+  const supabase = client ?? createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabase
     .from('appointments')
     .select('*')
     .eq('date', dateStr)
-    .order('time')
+    .order('time') as any
+  if (error) console.error('[data] getAppointmentsByDay error:', error.message, error.code)
   if (!data) return []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data as any[]).map(rowToAppointment)
 }
 
-export async function getOccupancyByMonth(year: number, month: number): Promise<Record<string, number>> {
-  const supabase = createClient()
-  const from = `${year}-${String(month).padStart(2, '0')}-01`
-  const to   = `${year}-${String(month).padStart(2, '0')}-31`
-  const { data } = await supabase
+export async function getOccupancyByMonth(year: number, month: number, client?: SupabaseClient): Promise<Record<string, number>> {
+  const supabase = client ?? createClient()
+  const from    = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month, 0).getDate() // último dia real do mês
+  const to      = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabase
     .from('appointments')
     .select('date')
     .gte('date', from)
     .lte('date', to)
-    .neq('status', 'cancelado')
+    .neq('status', 'cancelado') as any
+  if (error) console.error('[data] getOccupancyByMonth error:', error.message, error.code)
   if (!data) return {}
   const map: Record<string, number> = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,20 +64,26 @@ export async function getOccupancyByMonth(year: number, month: number): Promise<
   return map
 }
 
-export async function getAllAppointments(): Promise<AdminAppointment[]> {
-  const supabase = createClient()
-  const { data } = await supabase
+export async function getAllAppointments(client?: SupabaseClient): Promise<AdminAppointment[]> {
+  const supabase = client ?? createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabase
     .from('appointments')
     .select('*')
     .order('date')
-    .order('time')
+    .order('time') as any
+  if (error) console.error('[data] getAllAppointments error:', error.message, error.code)
   if (!data) return []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data as any[]).map(rowToAppointment)
 }
 
-export async function addAppointment(apt: Omit<AdminAppointment, 'id'>): Promise<AdminAppointment | null> {
-  const supabase = createClient()
+export async function addAppointment(
+  apt: Omit<AdminAppointment, 'id'>,
+  clienteId?: string,
+  client?: SupabaseClient
+): Promise<AdminAppointment | null> {
+  const supabase = client ?? createClient()
   const { data } = await supabase
     .from('appointments')
     .insert({
@@ -83,10 +95,27 @@ export async function addAppointment(apt: Omit<AdminAppointment, 'id'>): Promise
       date:       apt.date,
       time:       apt.time,
       status:     apt.status,
+      // created_by → profiles.id (auth user)
+      // cliente_id → clientes.id (tabela separada) — não definir aqui para evitar FK violation
+      ...(clienteId ? { created_by: clienteId } : {}),
     })
     .select()
     .single()
   if (!data) return null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return rowToAppointment(data as any)
+}
+
+export async function getClientAppointments(userId: string, client?: SupabaseClient): Promise<AdminAppointment[]> {
+  const supabase = client ?? createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('created_by', userId)
+    .order('date', { ascending: false }) as any
+  if (error) console.error('[data] getClientAppointments error:', error.message)
+  if (!data) return []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map(rowToAppointment)
 }

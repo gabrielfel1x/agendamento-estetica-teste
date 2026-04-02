@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getAppointmentsByDay, getOccupancyByMonth, AdminAppointment } from '@/lib/admin-data';
 import { ALL_TIMES } from '@/lib/constants';
+import { createStaffClient } from '@/lib/supabase/client';
 import NovoAgendamentoModal from '@/components/system/NovoAgendamentoModal';
 
 const TODAY = new Date();
@@ -51,22 +52,28 @@ export default function AgendaPage() {
   const [modalOpen, setModalOpen]     = useState(false);
   const [refreshKey, setRefreshKey]   = useState(0);
 
-  const [occupancy, setOccupancy]   = useState<Record<string, number>>({});
-  const [dayApts, setDayApts]       = useState<AdminAppointment[]>([]);
-  const [loadingDay, setLoadingDay] = useState(false);
+  const [occupancy, setOccupancy]         = useState<Record<string, number>>({});
+  const [loadingOccupancy, setLoadingOcc] = useState(true);
+  const [dayApts, setDayApts]             = useState<AdminAppointment[]>([]);
+  const [loadingDay, setLoadingDay]       = useState(true);
 
+  const staffClient = useMemo(() => createStaffClient(), []);
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
   // Carrega ocupação do mês inteiro
   useEffect(() => {
-    getOccupancyByMonth(YEAR, MONTH).then(setOccupancy);
+    setLoadingOcc(true);
+    getOccupancyByMonth(YEAR, MONTH, staffClient).then(data => {
+      setOccupancy(data);
+      setLoadingOcc(false);
+    });
   }, [refreshKey]);
 
   // Carrega agendamentos do dia selecionado
   useEffect(() => {
     const dateStr = padDate(YEAR, MONTH, selectedDay);
     setLoadingDay(true);
-    getAppointmentsByDay(dateStr).then(apts => {
+    getAppointmentsByDay(dateStr, staffClient).then(apts => {
       setDayApts(apts);
       setLoadingDay(false);
     });
@@ -97,7 +104,7 @@ export default function AgendaPage() {
         {/* Calendar */}
         <div className="admin-cal">
           <div className="admin-cal-month">{MONTH_NAMES[MONTH - 1]} {YEAR}</div>
-          <div className="admin-cal-grid">
+          <div className={`admin-cal-grid${loadingOccupancy ? ' loading' : ''}`}>
             {WEEKDAY_HEADERS.map(h => (
               <div key={h} className="admin-cal-wday">{h}</div>
             ))}
@@ -154,8 +161,12 @@ export default function AgendaPage() {
             </div>
           </div>
 
-          <div className={`agenda-slots${loadingDay ? ' loading' : ''}`}>
-            {ALL_TIMES.map(time => {
+          <div className="agenda-slots">
+            {loadingDay ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="agenda-slot-skeleton" />
+              ))
+            ) : ALL_TIMES.map(time => {
               const apt = aptsByTime[time];
               return (
                 <div key={time} className={`agenda-slot${apt ? ' busy' : ' avail'}`}>

@@ -27,8 +27,7 @@ export default function AssinaturaPage() {
 
   useEffect(() => {
     if (!user) router.replace('/cadastro?ref=pacote');
-    else if (user.role !== 'cliente') router.replace('/agenda');
-    else if (user.plan && user.planStatus === 'ativo') router.replace('/minha-conta');
+    else if (user.role === 'cliente' && user.plan && user.planStatus === 'ativo') router.replace('/minha-conta');
   }, [user, router]);
 
   function formatCardNumber(val: string) {

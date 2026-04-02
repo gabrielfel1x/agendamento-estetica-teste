@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth-context';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 
 interface NavItem {
   href: string;
@@ -70,13 +70,13 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function SystemSidebar() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAdminAuth();
   const pathname = usePathname();
   const router   = useRouter();
 
   async function handleLogout() {
     await logout();
-    router.replace('/login');
+    router.replace('/acesso');
   }
 
   const visibleItems = NAV_ITEMS.filter(item =>

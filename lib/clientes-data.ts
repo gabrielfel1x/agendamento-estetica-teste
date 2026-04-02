@@ -1,4 +1,7 @@
-import { ADMIN_APPOINTMENTS, AdminAppointment } from './admin-data';
+import { AdminAppointment, getAppointmentsByDay, getAllAppointments } from './admin-data';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export type { AdminAppointment };
 
 export interface Cliente {
   id: string;
@@ -8,6 +11,7 @@ export interface Cliente {
   since: string; // YYYY-MM-DD
 }
 
+// Mock temporário — substituído na Fase 5 (migração de clientes para Supabase)
 export const CLIENTES: Cliente[] = [
   { id:'c01', name:'Sophia Andrade',     phone:'11987651001', email:'sophia@email.com',    since:'2026-01-15' },
   { id:'c02', name:'Isabela Torres',     phone:'11987651002', email:'isabela@email.com',   since:'2026-01-22' },
@@ -23,17 +27,22 @@ export const CLIENTES: Cliente[] = [
   { id:'c12', name:'Tatiana Bezerra',    phone:'11987651036', email:'tatiana@email.com',   since:'2026-01-05' },
 ];
 
-export function getClienteHistory(clientePhone: string): AdminAppointment[] {
-  return ADMIN_APPOINTMENTS
+export async function getClienteHistory(clientePhone: string, client?: SupabaseClient): Promise<AdminAppointment[]> {
+  const all = await getAllAppointments(client);
+  return all
     .filter(a => a.phone === clientePhone)
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export function getClienteTotalAppointments(clientePhone: string): number {
-  return ADMIN_APPOINTMENTS.filter(a => a.phone === clientePhone && a.status !== 'cancelado').length;
+export async function getClienteTotalAppointments(clientePhone: string, client?: SupabaseClient): Promise<number> {
+  const all = await getAllAppointments(client);
+  return all.filter(a => a.phone === clientePhone && a.status !== 'cancelado').length;
 }
 
-export function getClienteLastProcedure(clientePhone: string): string | null {
-  const history = getClienteHistory(clientePhone).filter(a => a.status !== 'cancelado');
-  return history[0]?.procedure || null;
+export async function getClienteLastProcedure(clientePhone: string, client?: SupabaseClient): Promise<string | null> {
+  const history = (await getClienteHistory(clientePhone, client)).filter(a => a.status !== 'cancelado');
+  return history[0]?.procedure ?? null;
 }
+
+// Re-exporta getAppointmentsByDay para uso nos componentes de cliente
+export { getAppointmentsByDay };

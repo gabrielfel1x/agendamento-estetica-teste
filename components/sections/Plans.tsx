@@ -1,6 +1,15 @@
+'use client';
+
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth-context';
 
 export default function Plans() {
+  const { user } = useAuth();
+  const pacoteHref = !user
+    ? '/cadastro'
+    : user.role === 'cliente'
+    ? '/assinatura'
+    : '/assinatura'; // admin/funcionario também pode visualizar
   return (
     <section id="plans">
       <div className="container">
@@ -41,7 +50,7 @@ export default function Plans() {
               <p className="pkg-price-main">12x de <strong>R$ 55,99</strong></p>
               <p className="pkg-price-alt">ou R$ 599,90 à vista</p>
             </div>
-            <Link href="/cadastro" className="pkg-cta">
+            <Link href={pacoteHref} className="pkg-cta">
               Quero este pacote
             </Link>
           </div>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getAllAppointments, AdminAppointment } from '@/lib/admin-data';
+import { createStaffClient } from '@/lib/supabase/client';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -48,9 +49,10 @@ function computeMetrics(apts: AdminAppointment[]) {
 export default function OverviewSection() {
   const [apts, setApts]       = useState<AdminAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const staffClient = useMemo(() => createStaffClient(), []);
 
   useEffect(() => {
-    getAllAppointments().then(data => {
+    getAllAppointments(staffClient).then(data => {
       setApts(data);
       setLoading(false);
     });

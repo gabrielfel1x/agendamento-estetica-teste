@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PROCEDURE_CATALOG, ALL_TIMES } from '@/lib/constants';
 import { addAppointment } from '@/lib/admin-data';
+import { createStaffClient } from '@/lib/supabase/client';
 
 interface Props {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
   const [form, setForm]       = useState({ ...EMPTY });
   const [error, setError]     = useState('');
   const [saving, setSaving]   = useState(false);
+  const staffClient = useMemo(() => createStaffClient(), []);
 
   useEffect(() => {
     if (isOpen) {
@@ -60,7 +62,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, onS
       date:      form.date,
       time:      form.time,
       status:    'confirmado',
-    });
+    }, undefined, staffClient);
 
     setSaving(false);
 

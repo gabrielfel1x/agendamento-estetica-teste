@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Cormorant_Garamond, Outfit } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
+import { AdminAuthProvider } from '@/lib/admin-auth-context';
 import ClientSetup from '@/components/ClientSetup';
 
 const cormorant = Cormorant_Garamond({
@@ -30,8 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`${cormorant.variable} ${outfit.variable}`}>
       <body>
         <AuthProvider>
-          {children}
-          <ClientSetup />
+          <AdminAuthProvider>
+            {children}
+            <ClientSetup />
+          </AdminAuthProvider>
         </AuthProvider>
       </body>
     </html>

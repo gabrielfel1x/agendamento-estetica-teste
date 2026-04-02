@@ -1,10 +1,10 @@
 'use client';
 
-import { useAuth } from '@/lib/auth-context';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 import OverviewSection from '@/components/admin/OverviewSection';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user } = useAdminAuth();
 
   if (user?.role !== 'admin') {
     return (

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { PROCEDURE_CATALOG } from '@/lib/constants';
+import { useAuth } from '@/lib/auth-context';
 
 const CATS = [
   { id: 'todos',    label: 'Todos os serviços' },
@@ -51,8 +52,12 @@ const CAT_LABELS: Record<string, string> = {
 };
 
 export default function Services() {
+  const { user } = useAuth();
   const [active, setActive] = useState('todos');
   const trackRef = useRef<HTMLDivElement>(null);
+
+  // Destino do botão "Agendar" dependendo do estado de autenticação
+  const agendarHref = user ? '/minha-conta' : '/login';
 
   const filtered = PROCEDURE_CATALOG.filter(s =>
     active === 'todos' || CAT_MAP[s.name] === active
@@ -123,7 +128,7 @@ export default function Services() {
 
                   <div className="svc-card-footer">
                     <p className="svc-card-price">{svc.price}</p>
-                    <Link href="/cadastro" className="svc-card-btn">
+                    <Link href={agendarHref} className="svc-card-btn">
                       Agendar
                       <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                         <path d="M5 12h14M12 5l7 7-7 7" />
