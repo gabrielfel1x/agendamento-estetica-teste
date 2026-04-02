@@ -24,8 +24,8 @@ export default function Nav() {
               <li><a href="#testimonials">Depoimentos</a></li>
             </ul>
 
-            <Link href="/login" className="nav-cta">
-              Área Restrita
+            <Link href="/minha-conta" className="nav-cta">
+              Meus Agendamentos
             </Link>
 
             <button
@@ -47,8 +47,8 @@ export default function Nav() {
         <a href="#how" onClick={closeMenu}>Como funciona</a>
         <div className="m-divider" />
         <a href="#testimonials" onClick={closeMenu}>Depoimentos</a>
-        <Link href="/login" className="nav-mobile-cta" onClick={closeMenu}>
-          Área Restrita
+        <Link href="/minha-conta" className="nav-mobile-cta" onClick={closeMenu}>
+          Meus Agendamentos
         </Link>
       </div>
     </>
