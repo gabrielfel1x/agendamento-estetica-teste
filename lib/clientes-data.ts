@@ -58,22 +58,40 @@ export async function addCliente(
 export async function updateCliente(
   id: string,
   updates: { name?: string; phone?: string; email?: string | null; notes?: string | null },
-  client?: SupabaseClient
+  _client?: SupabaseClient
 ): Promise<boolean> {
-  const supabase = client ?? createClient();
-  const { error } = await supabase
-    .from('clientes')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id);
-  if (error) console.error('[data] updateCliente error:', error.message);
-  return !error;
+  try {
+    const res = await fetch('/api/admin/clientes', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, updates }),
+    });
+    if (!res.ok) {
+      const json = await res.json();
+      console.error('[data] updateCliente error:', json.error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('[data] updateCliente:', e);
+    return false;
+  }
 }
 
-export async function deleteCliente(id: string, client?: SupabaseClient): Promise<boolean> {
-  const supabase = client ?? createClient();
-  const { error } = await supabase.from('clientes').delete().eq('id', id);
-  if (error) console.error('[data] deleteCliente error:', error.message);
-  return !error;
+export async function deleteCliente(id: string, _client?: SupabaseClient): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/admin/delete-user', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, type: 'cliente' }),
+    })
+    const json = await res.json()
+    if (!res.ok) return { ok: false, error: json.error ?? 'Erro ao excluir.' }
+    return { ok: true }
+  } catch (e) {
+    console.error('[data] deleteCliente:', e)
+    return { ok: false, error: 'Erro de conexão.' }
+  }
 }
 
 // Re-exporta para uso nos componentes de cliente
