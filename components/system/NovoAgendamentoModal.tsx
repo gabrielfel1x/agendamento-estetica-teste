@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { PROCEDURE_CATALOG } from '@/lib/constants';
+import { PROCEDURE_CATALOG, ALL_TIMES } from '@/lib/constants';
 import { addAppointment } from '@/lib/admin-data';
 import { createStaffClient } from '@/lib/supabase/client';
 
@@ -15,13 +15,17 @@ interface Props {
 
 const PAGAMENTOS = ['Pix', 'Cartão de crédito', 'Cartão de débito', 'Dinheiro', 'Outro'];
 
-const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const WEEKDAYS    = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+function getLocalDateStr() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+}
 
-function formatDateDisplay(dateStr: string) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dow = new Date(`${dateStr}T12:00:00`).getDay();
-  return `${WEEKDAYS[dow]}, ${d} de ${MONTH_NAMES[m - 1]} de ${y}`;
+function isTimePast(dateStr: string, time: string) {
+  const todayStr = getLocalDateStr();
+  if (dateStr !== todayStr) return dateStr < todayStr;
+  const now = new Date();
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m <= now.getHours() * 60 + now.getMinutes() + 30;
 }
 
 function maskPhone(v: string) {
@@ -43,9 +47,12 @@ function priceToNum(v: string) {
   return parseInt(v.replace(/\D/g, ''), 10) || 0;
 }
 
-const EMPTY = { name: '', phone: '', procedure: 0, payment: 'Pix', value: '', obs: '' };
+const EMPTY = { name: '', phone: '', procedure: 0, payment: 'Pix', value: '', obs: '', date: '', time: '' };
 
 export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, defaultTime, onSaved }: Props) {
+  // fromSlot = aberto clicando num horário específico na agenda
+  const fromSlot = !!(defaultDate && defaultTime);
+
   const [form, setForm]     = useState({ ...EMPTY });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -53,10 +60,16 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
 
   useEffect(() => {
     if (isOpen) {
-      setForm({ ...EMPTY, procedure: 0, value: PROCEDURE_CATALOG[0].price });
+      setForm({
+        ...EMPTY,
+        procedure: 0,
+        value: PROCEDURE_CATALOG[0].price,
+        date: defaultDate || '',
+        time: defaultTime || '',
+      });
       setErrors({});
     }
-  }, [isOpen]);
+  }, [isOpen, defaultDate, defaultTime]);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : '';
@@ -73,51 +86,45 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
     setErrors(e => ({ ...e, [key]: '' }));
   }
 
+  const availableTimes = ALL_TIMES.filter(t => !isTimePast(form.date, t));
+
   function validate() {
     const errs: Record<string, string> = {};
-    if (!form.name.trim())              errs.name  = 'Informe o nome do cliente.';
+    if (!form.name.trim())                errs.name = 'Informe o nome do cliente.';
     else if (form.name.trim().length < 3) errs.name = 'Nome muito curto.';
-
     if (form.phone) {
       const digits = form.phone.replace(/\D/g, '');
       if (digits.length < 10) errs.phone = 'Telefone incompleto.';
     }
-
-    if (!defaultDate) errs._date = 'Nenhuma data selecionada.';
-    if (!defaultTime) errs._time = 'Clique em um horário disponível na agenda para abrir este formulário.';
-
+    if (!form.date) errs.date = 'Selecione uma data.';
+    else if (form.date < getLocalDateStr()) errs.date = 'Não é possível agendar em data passada.';
+    if (!form.time) errs.time = 'Selecione um horário.';
+    else if (isTimePast(form.date, form.time)) errs.time = 'Horário já passou.';
     return errs;
   }
 
   async function handleSave() {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-
     setSaving(true);
     setErrors({});
-
     const result = await addAppointment({
       patient:   form.name.trim(),
       phone:     form.phone.replace(/\D/g, ''),
       procedure: PROCEDURE_CATALOG[form.procedure].name,
       priceNum:  priceToNum(form.value),
       price:     form.value || PROCEDURE_CATALOG[form.procedure].price,
-      date:      defaultDate!,
-      time:      defaultTime!,
+      date:      form.date,
+      time:      form.time,
       status:    'confirmado',
     }, undefined, staffClient);
-
     setSaving(false);
-
-    if (!result) { setErrors({ _save: 'Erro ao salvar agendamento. Tente novamente.' }); return; }
-
+    if (!result) { setErrors({ _save: 'Erro ao salvar. Tente novamente.' }); return; }
     onSaved?.();
     onClose();
   }
 
   if (!isOpen) return null;
-
-  const hasDatetime = defaultDate && defaultTime;
 
   return (
     <div className="na-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -126,9 +133,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
           <div>
             <h2 className="na-modal-title">Novo Agendamento</h2>
             <p className="na-modal-sub">
-              {hasDatetime
-                ? `${formatDateDisplay(defaultDate!)} · ${defaultTime}`
-                : 'Preencha os dados do agendamento'}
+              {fromSlot ? `${form.date} · ${form.time}` : 'Preencha os dados do agendamento'}
             </p>
           </div>
           <button className="na-close" onClick={onClose} aria-label="Fechar">
@@ -137,37 +142,6 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
             </svg>
           </button>
         </div>
-
-        {/* Date/time badge */}
-        {hasDatetime && (
-          <div className="na-datetime-row">
-            <span className="na-datetime-chip">
-              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="18" rx="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              {defaultDate}
-            </span>
-            <span className="na-datetime-chip">
-              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-              {defaultTime}
-            </span>
-          </div>
-        )}
-
-        {(errors._date || errors._time) && (
-          <div className="na-modal-body" style={{ paddingBottom: 0 }}>
-            <p className="na-error">
-              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              {errors._date || errors._time}
-            </p>
-          </div>
-        )}
 
         <div className="na-modal-body">
           <div className="na-grid">
@@ -213,6 +187,45 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
               </div>
             </div>
 
+            {/* Data */}
+            <div className="na-field">
+              <label className="na-label">Data *</label>
+              <input
+                className={`na-input${errors.date ? ' na-input-error' : ''}${fromSlot ? ' na-input-locked' : ''}`}
+                type="date"
+                min={getLocalDateStr()}
+                value={form.date}
+                onChange={e => { set('date', e.target.value); set('time', ''); }}
+                disabled={fromSlot}
+              />
+              {errors.date && <span className="na-field-error">{errors.date}</span>}
+            </div>
+
+            {/* Horário */}
+            <div className="na-field">
+              <label className="na-label">Horário *</label>
+              {fromSlot ? (
+                <input
+                  className="na-input na-input-locked"
+                  value={form.time}
+                  disabled
+                />
+              ) : (
+                <div className="na-select-wrap">
+                  <select
+                    className={`na-select${errors.time ? ' na-input-error' : ''}`}
+                    value={form.time}
+                    onChange={e => set('time', e.target.value)}
+                    disabled={!form.date}
+                  >
+                    <option value="">Selecione</option>
+                    {availableTimes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
+              {errors.time && <span className="na-field-error">{errors.time}</span>}
+            </div>
+
             {/* Valor */}
             <div className="na-field">
               <label className="na-label">Valor</label>
@@ -225,9 +238,9 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
               />
             </div>
 
-            {/* Forma de pagamento */}
+            {/* Pagamento */}
             <div className="na-field">
-              <label className="na-label">Forma de pagamento</label>
+              <label className="na-label">Pagamento</label>
               <div className="na-select-wrap">
                 <select
                   className="na-select"
@@ -264,7 +277,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
 
         <div className="na-modal-footer">
           <button className="na-cancel" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button className="na-save" onClick={handleSave} disabled={saving || !hasDatetime}>
+          <button className="na-save" onClick={handleSave} disabled={saving}>
             {saving ? (
               <span className="login-spinner" style={{ width: 14, height: 14 }} />
             ) : (

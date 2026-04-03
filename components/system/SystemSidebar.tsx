@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminAuth } from '@/lib/admin-auth-context';
@@ -73,6 +74,13 @@ export default function SystemSidebar() {
   const { user, logout } = useAdminAuth();
   const pathname = usePathname();
   const router   = useRouter();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [drawerOpen]);
 
   async function handleLogout() {
     await logout();
@@ -84,48 +92,116 @@ export default function SystemSidebar() {
   );
 
   return (
-    <aside className="admin-sidebar">
-      <div className="admin-sidebar-logo">
-        <img src="/logo.svg" alt="" className="admin-logo-img" />
-        <span className="admin-logo-text">Depill plus</span>
-      </div>
-
-      <p className="admin-sidebar-label">
-        {user?.role === 'admin' ? 'Painel Admin' : 'Painel'}
-      </p>
-
-      <nav className="admin-nav">
-        {visibleItems.map(item => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`admin-nav-item${pathname === item.href ? ' active' : ''}`}
-          >
-            <span className="admin-nav-icon">{item.icon}</span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
-      </nav>
-
-      <div className="admin-sidebar-footer">
-        {user && (
-          <div className="sys-user-info">
-            <div className="sys-user-avatar">
-              {user.name.charAt(0)}
+    <>
+      {/* ── Desktop sidebar ── */}
+      <aside className="admin-sidebar">
+        <div className="admin-sidebar-logo">
+          <img src="/logo.svg" alt="" className="admin-logo-img" />
+          <span className="admin-logo-text">Depill plus</span>
+        </div>
+        <p className="admin-sidebar-label">
+          {user?.role === 'admin' ? 'Painel Admin' : 'Painel'}
+        </p>
+        <nav className="admin-nav">
+          {visibleItems.map(item => (
+            <Link key={item.href} href={item.href}
+              className={`admin-nav-item${pathname === item.href ? ' active' : ''}`}>
+              <span className="admin-nav-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+        <div className="admin-sidebar-footer">
+          {user && (
+            <div className="sys-user-info">
+              <div className="sys-user-avatar">{user.name.charAt(0)}</div>
+              <div className="sys-user-text">
+                <p className="sys-user-name">{user.name}</p>
+                <p className="sys-user-role">{user.role === 'admin' ? 'Administradora' : 'Funcionária'}</p>
+              </div>
             </div>
-            <div className="sys-user-text">
-              <p className="sys-user-name">{user.name}</p>
-              <p className="sys-user-role">{user.role === 'admin' ? 'Administradora' : 'Funcionária'}</p>
-            </div>
-          </div>
-        )}
-        <button className="sys-logout-btn" onClick={handleLogout}>
-          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-          </svg>
-          Sair
+          )}
+          <button className="sys-logout-btn" onClick={handleLogout}>
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+            </svg>
+            Sair
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Mobile top bar ── */}
+      <header className="admin-topbar">
+        <div className="admin-topbar-logo">
+          <img src="/logo.svg" alt="" className="admin-logo-img" />
+          <span className="admin-logo-text">Depill plus</span>
+        </div>
+        <button
+          className={`admin-hamburger${drawerOpen ? ' open' : ''}`}
+          onClick={() => setDrawerOpen(v => !v)}
+          aria-label={drawerOpen ? 'Fechar menu' : 'Abrir menu'}
+        >
+          <span /><span /><span />
         </button>
+      </header>
+
+      {/* ── Overlay ── */}
+      {drawerOpen && (
+        <div className="admin-drawer-overlay" onClick={() => setDrawerOpen(false)} />
+      )}
+
+      {/* ── Drawer ── */}
+      <div className={`admin-drawer${drawerOpen ? ' open' : ''}`} aria-hidden={!drawerOpen}>
+
+        {/* Cabeçalho do drawer */}
+        <div className="admin-drawer-header">
+          <div className="admin-sidebar-logo" style={{ padding: 0 }}>
+            <img src="/logo.svg" alt="" className="admin-logo-img" />
+            <span className="admin-logo-text">Depill plus</span>
+          </div>
+          <button className="admin-drawer-close" onClick={() => setDrawerOpen(false)} aria-label="Fechar">
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Navegação */}
+        <div className="admin-drawer-body">
+          <p className="admin-drawer-section-label">
+            {user?.role === 'admin' ? 'Painel Admin' : 'Painel'}
+          </p>
+          <nav className="admin-drawer-nav">
+            {visibleItems.map(item => (
+              <Link key={item.href} href={item.href}
+                className={`admin-nav-item${pathname === item.href ? ' active' : ''}`}
+                onClick={() => setDrawerOpen(false)}>
+                <span className="admin-nav-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        {/* Rodapé com user + logout */}
+        <div className="admin-drawer-footer">
+          {user && (
+            <div className="admin-drawer-user">
+              <div className="sys-user-avatar">{user.name.charAt(0)}</div>
+              <div className="sys-user-text">
+                <p className="sys-user-name">{user.name}</p>
+                <p className="sys-user-role">{user.role === 'admin' ? 'Administradora' : 'Funcionária'}</p>
+              </div>
+            </div>
+          )}
+          <button className="sys-logout-btn" onClick={handleLogout}>
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+            </svg>
+            Sair da conta
+          </button>
+        </div>
       </div>
-    </aside>
+    </>
   );
 }
