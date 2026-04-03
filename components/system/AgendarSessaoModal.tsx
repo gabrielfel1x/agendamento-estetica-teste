@@ -2,8 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { PROCEDURE_CATALOG, ALL_TIMES } from '@/lib/constants';
+import { PROCEDURE_CATALOG } from '@/lib/constants';
 import { getAppointmentsByDay, addAppointment } from '@/lib/admin-data';
+import {
+  getClinicSettings,
+  generateTimes,
+  DEFAULT_SETTINGS,
+  type ClinicSettings,
+} from '@/lib/clinic-settings';
 
 interface Props {
   isOpen: boolean;
@@ -11,28 +17,24 @@ interface Props {
   onSaved?: () => void;
 }
 
-const WEEKDAYS  = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-/** Retorna a data local e hora atuais */
-function getNow() {
-  const n = new Date();
-  const dateStr = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
-  return { dateStr, hours: n.getHours(), minutes: n.getMinutes() };
-}
-
-/** Verifica se um horário já passou (ou está a menos de 30min) para determinada data */
-function isTimePast(dateStr: string, time: string) {
-  const { dateStr: todayStr, hours, minutes } = getNow();
-  if (dateStr !== todayStr) return false;
-  const [h, m] = time.split(':').map(Number);
-  const slotMin = h * 60 + m;
-  const nowMin  = hours * 60 + minutes + 30; // 30 min de antecedência
-  return slotMin <= nowMin;
-}
+const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MONTHS_PT = [
   'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
 ];
+
+function getLocalDateStr() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+
+function isTimePast(dateStr: string, time: string) {
+  const todayStr = getLocalDateStr();
+  if (dateStr !== todayStr) return false;
+  const now = new Date();
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m <= now.getHours() * 60 + now.getMinutes() + 30;
+}
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 
@@ -49,6 +51,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   const { user } = useAuth();
 
   const now = new Date();
+  const [settings,     setSettings]     = useState<ClinicSettings>(DEFAULT_SETTINGS);
   const [step,         setStep]         = useState<'procedure' | 'datetime'>('procedure');
   const [procIdx,      setProcIdx]      = useState(0);
   const [calYear,      setCalYear]      = useState(now.getFullYear());
@@ -59,6 +62,11 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error,        setError]        = useState('');
   const [saving,       setSaving]       = useState(false);
+
+  // Carrega configurações da clínica
+  useEffect(() => {
+    getClinicSettings().then(setSettings);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -89,8 +97,12 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     });
   }, [selectedDate]);
 
-  const procedure = PROCEDURE_CATALOG[procIdx];
-  const calDays   = useMemo(() => buildCalendar(calYear, calMonth), [calYear, calMonth]);
+  const procedure  = PROCEDURE_CATALOG[procIdx];
+  const allTimes   = useMemo(
+    () => generateTimes(settings.start_hour, settings.end_hour, settings.slot_interval),
+    [settings]
+  );
+  const calDays    = useMemo(() => buildCalendar(calYear, calMonth), [calYear, calMonth]);
 
   function toDateStr(d: number) {
     return `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
@@ -99,7 +111,11 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   function isDisabled(d: number) {
     const ds  = toDateStr(d);
     const dow = new Date(`${ds}T12:00:00`).getDay();
-    return ds < getNow().dateStr || dow === 0;
+    const todayStr = getLocalDateStr();
+    if (ds < todayStr) return true;
+    if (!settings.active_weekdays.includes(dow)) return true;
+    if (settings.blocked_dates.includes(ds)) return true;
+    return false;
   }
 
   const canGoPrev = calYear > now.getFullYear() || calMonth > now.getMonth();
@@ -126,11 +142,10 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     if (!selectedDate) { setError('Selecione uma data.'); return; }
     if (!selectedTime) { setError('Selecione um horário disponível.'); return; }
     if (isTimePast(selectedDate, selectedTime)) {
-      setError('Este horário já passou. Selecione outro horário.');
+      setError('Este horário já passou. Selecione outro.');
       setSelectedTime('');
       return;
     }
-
     setSaving(true);
     const result = await addAppointment({
       patient:   user!.name,
@@ -143,9 +158,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
       status:    'pendente',
     }, user!.id);
     setSaving(false);
-
     if (!result) { setError('Erro ao confirmar agendamento. Tente novamente.'); return; }
-
     onSaved?.();
     onClose();
   }
@@ -191,7 +204,6 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
         </div>
 
         <div className="na-modal-body">
-
           {step === 'procedure' && (
             <div className="clt-proc-list">
               {PROCEDURE_CATALOG.map((p, i) => (
@@ -236,7 +248,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
                     if (!d) return <div key={`e-${i}`} className="clt-cal-day empty" />;
                     const disabled = isDisabled(d);
                     const selected = toDateStr(d) === selectedDate;
-                    const isToday  = toDateStr(d) === getNow().dateStr;
+                    const isToday  = toDateStr(d) === getLocalDateStr();
                     return (
                       <button
                         key={d}
@@ -258,7 +270,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
                 {selectedDate && !loadingSlots ? (
                   <>
                     <div className="clt-times-grid">
-                      {ALL_TIMES.map(t => {
+                      {allTimes.map(t => {
                         const busy    = bookedTimes.has(t);
                         const passed  = isTimePast(selectedDate, t);
                         const blocked = busy || passed;

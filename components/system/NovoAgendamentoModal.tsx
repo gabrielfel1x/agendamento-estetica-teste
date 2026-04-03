@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { PROCEDURE_CATALOG, ALL_TIMES } from '@/lib/constants';
+import { PROCEDURE_CATALOG } from '@/lib/constants';
 import { addAppointment } from '@/lib/admin-data';
 import { createStaffClient } from '@/lib/supabase/client';
+import { getClinicSettings, generateTimes, DEFAULT_SETTINGS, type ClinicSettings } from '@/lib/clinic-settings';
 
 interface Props {
   isOpen: boolean;
@@ -53,10 +54,15 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
   // fromSlot = aberto clicando num horário específico na agenda
   const fromSlot = !!(defaultDate && defaultTime);
 
+  const [settings,  setSettings]  = useState<ClinicSettings>(DEFAULT_SETTINGS);
   const [form, setForm]     = useState({ ...EMPTY });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const staffClient = useMemo(() => createStaffClient(), []);
+
+  useEffect(() => {
+    getClinicSettings(staffClient).then(setSettings);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -86,7 +92,11 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
     setErrors(e => ({ ...e, [key]: '' }));
   }
 
-  const availableTimes = ALL_TIMES.filter(t => !isTimePast(form.date, t));
+  const allTimes = useMemo(
+    () => generateTimes(settings.start_hour, settings.end_hour, settings.slot_interval),
+    [settings]
+  );
+  const availableTimes = allTimes.filter(t => !isTimePast(form.date, t));
 
   function validate() {
     const errs: Record<string, string> = {};

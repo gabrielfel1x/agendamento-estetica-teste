@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getAppointmentsByDay, getOccupancyByMonth, updateAppointmentStatus, AdminAppointment } from '@/lib/admin-data';
-import { ALL_TIMES } from '@/lib/constants';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import {
+  getAppointmentsByDay, getOccupancyByMonth,
+  updateAppointmentStatus, updateAppointment,
+  AdminAppointment,
+} from '@/lib/admin-data';
 import { createStaffClient } from '@/lib/supabase/client';
+import { getClinicSettings, generateTimes, DEFAULT_SETTINGS, type ClinicSettings } from '@/lib/clinic-settings';
+import { PROCEDURE_CATALOG } from '@/lib/constants';
 import NovoAgendamentoModal from '@/components/system/NovoAgendamentoModal';
 
 const TODAY = new Date();
@@ -11,12 +16,34 @@ const TODAY_STR = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(
 const YEAR  = TODAY.getFullYear();
 const MONTH = TODAY.getMonth() + 1;
 
+function getLocalDateStr() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+
 function isSlotPast(dateStr: string, time: string): boolean {
   if (dateStr < TODAY_STR) return true;
   if (dateStr > TODAY_STR) return false;
   const now = new Date();
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m <= now.getHours() * 60 + now.getMinutes() + 30;
+}
+
+function isDateBlocked(dateStr: string, settings: ClinicSettings): boolean {
+  if (settings.blocked_dates.includes(dateStr)) return true;
+  const dow = new Date(dateStr + 'T12:00:00').getDay();
+  return !settings.active_weekdays.includes(dow);
+}
+
+function maskPrice(v: string) {
+  const digits = v.replace(/\D/g, '');
+  if (!digits) return '';
+  const num = parseInt(digits, 10);
+  return 'R$ ' + (num / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function priceToNum(v: string) {
+  return parseInt(v.replace(/\D/g, ''), 10) || 0;
 }
 
 const WEEKDAY_HEADERS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -57,7 +84,7 @@ function buildMonthDays(year: number, month: number): (number | null)[] {
 
 function waLink(phone: string, patient: string) {
   const clean = phone.replace(/\D/g, '');
-  const msg = encodeURIComponent(`Olá ${patient}! Entrando em contato da Clínica.`);
+  const msg = encodeURIComponent(`Olá ${patient}! Entrando em contato da Lumière Estética.`);
   return `https://wa.me/55${clean}?text=${msg}`;
 }
 
@@ -67,27 +94,62 @@ const STATUS_LABEL: Record<string, string> = {
   cancelado: 'Cancelado',
 };
 
+type DetailMode = 'view' | 'reschedule' | 'edit';
+
 export default function AgendaPage() {
   const [selectedDay, setSelectedDay] = useState<number>(TODAY.getDate());
   const [modalOpen, setModalOpen]     = useState(false);
   const [modalTime, setModalTime]     = useState<string>('');
   const [refreshKey, setRefreshKey]   = useState(0);
-  const [detailApt, setDetailApt]     = useState<AdminAppointment | null>(null);
+
+  // Detail modal state
+  const [detailApt,   setDetailApt]   = useState<AdminAppointment | null>(null);
+  const [detailMode,  setDetailMode]  = useState<DetailMode>('view');
+  const [detailError, setDetailError] = useState('');
+
+  // Reschedule state
+  const [reschedDate,         setReschedDate]         = useState('');
+  const [reschedTime,         setReschedTime]         = useState('');
+  const [reschedBookedTimes,  setReschedBookedTimes]  = useState<Set<string>>(new Set());
+  const [reschedLoadingSlots, setReschedLoadingSlots] = useState(false);
+  const [reschedSaving,       setReschedSaving]       = useState(false);
+
+  // Edit state
+  const [editProcIdx, setEditProcIdx] = useState(0);
+  const [editPrice,   setEditPrice]   = useState('');
+  const [editSaving,  setEditSaving]  = useState(false);
 
   function openModal(time?: string) {
     setModalTime(time ?? '');
     setModalOpen(true);
   }
 
+  const [settings,  setSettings]          = useState<ClinicSettings>(DEFAULT_SETTINGS);
   const [occupancy, setOccupancy]         = useState<Record<string, number>>({});
   const [loadingOccupancy, setLoadingOcc] = useState(true);
   const [dayApts, setDayApts]             = useState<AdminAppointment[]>([]);
   const [loadingDay, setLoadingDay]       = useState(true);
-
   const [actionLoading, setActionLoading] = useState(false);
 
   const staffClient = useMemo(() => createStaffClient(), []);
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  useEffect(() => {
+    getClinicSettings(staffClient).then(setSettings);
+  }, []);
+
+  // Carrega horários ocupados ao remarcar
+  useEffect(() => {
+    if (!reschedDate || detailMode !== 'reschedule') return;
+    setReschedLoadingSlots(true);
+    getAppointmentsByDay(reschedDate, staffClient).then(apts => {
+      const booked = new Set(
+        apts.filter(a => a.id !== detailApt?.id && a.status !== 'cancelado').map(a => a.time)
+      );
+      setReschedBookedTimes(booked);
+      setReschedLoadingSlots(false);
+    });
+  }, [reschedDate, detailMode]);
 
   async function handleApprove(id: string) {
     setActionLoading(true);
@@ -105,7 +167,69 @@ export default function AgendaPage() {
     refresh();
   }
 
-  // Carrega ocupação do mês inteiro
+  async function handleReschedule() {
+    if (!detailApt || !reschedDate || !reschedTime) {
+      setDetailError('Selecione data e horário.');
+      return;
+    }
+    setReschedSaving(true);
+    const ok = await updateAppointment(detailApt.id, { date: reschedDate, time: reschedTime }, staffClient);
+    setReschedSaving(false);
+    if (!ok) { setDetailError('Erro ao remarcar. Tente novamente.'); return; }
+    setDetailApt(prev => prev ? { ...prev, date: reschedDate, time: reschedTime } : null);
+    setDetailMode('view');
+    setDetailError('');
+    refresh();
+  }
+
+  async function handleEditSave() {
+    if (!detailApt) return;
+    const proc = PROCEDURE_CATALOG[editProcIdx];
+    const finalPrice   = editPrice || proc.price;
+    const finalPriceNum = priceToNum(editPrice) || proc.priceNum;
+    setEditSaving(true);
+    const ok = await updateAppointment(detailApt.id, {
+      procedure: proc.name,
+      price:     finalPrice,
+      priceNum:  finalPriceNum,
+    }, staffClient);
+    setEditSaving(false);
+    if (!ok) { setDetailError('Erro ao salvar. Tente novamente.'); return; }
+    setDetailApt(prev => prev ? { ...prev, procedure: proc.name, price: finalPrice } : null);
+    setDetailMode('view');
+    setDetailError('');
+    refresh();
+  }
+
+  function openReschedule() {
+    if (!detailApt) return;
+    setReschedDate(detailApt.date);
+    setReschedTime(detailApt.time);
+    setDetailError('');
+    setDetailMode('reschedule');
+  }
+
+  function openEdit() {
+    if (!detailApt) return;
+    const idx = PROCEDURE_CATALOG.findIndex(p => p.name === detailApt.procedure);
+    setEditProcIdx(idx >= 0 ? idx : 0);
+    setEditPrice(detailApt.price);
+    setDetailError('');
+    setDetailMode('edit');
+  }
+
+  function closeDetail() {
+    setDetailApt(null);
+    setDetailMode('view');
+    setDetailError('');
+  }
+
+  function openDetailApt(apt: AdminAppointment) {
+    setDetailApt(apt);
+    setDetailMode('view');
+    setDetailError('');
+  }
+
   useEffect(() => {
     setLoadingOcc(true);
     getOccupancyByMonth(YEAR, MONTH, staffClient).then(data => {
@@ -114,7 +238,6 @@ export default function AgendaPage() {
     });
   }, [refreshKey]);
 
-  // Carrega agendamentos do dia selecionado
   useEffect(() => {
     const dateStr = padDate(YEAR, MONTH, selectedDay);
     setLoadingDay(true);
@@ -127,8 +250,40 @@ export default function AgendaPage() {
   const days = buildMonthDays(YEAR, MONTH);
   const selectedDateStr = padDate(YEAR, MONTH, selectedDay);
 
+  const allTimes = useMemo(
+    () => generateTimes(settings.start_hour, settings.end_hour, settings.slot_interval),
+    [settings]
+  );
+
+  const allTimesSet = useMemo(() => new Set(allTimes), [allTimes]);
+
   const aptsByTime: Record<string, AdminAppointment> = {};
   for (const a of dayApts) aptsByTime[a.time] = a;
+
+  // Orphan times: appointments that exist outside the current slot grid → show at the bottom
+  const displayTimes = useMemo(() => {
+    const orphans = dayApts
+      .map(a => a.time)
+      .filter(t => !allTimesSet.has(t))
+      .sort();
+    return [...allTimes, ...orphans];
+  }, [allTimes, allTimesSet, dayApts]);
+
+  const hasOrphans = displayTimes.length > allTimes.length;
+
+  // Horários disponíveis para remarcar (grid normal, filtrando já ocupados e passados)
+  const reschedAvailTimes = useMemo(() => {
+    const todayLocal = getLocalDateStr();
+    return allTimes.filter(t => {
+      if (reschedBookedTimes.has(t)) return false;
+      if (reschedDate === todayLocal) {
+        const now = new Date();
+        const [h, m] = t.split(':').map(Number);
+        if (h * 60 + m <= now.getHours() * 60 + now.getMinutes() + 30) return false;
+      }
+      return true;
+    });
+  }, [allTimes, reschedBookedTimes, reschedDate]);
 
   return (
     <div className="admin-section agenda-page">
@@ -211,43 +366,63 @@ export default function AgendaPage() {
               Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="agenda-slot-skeleton" />
               ))
-            ) : ALL_TIMES.map(time => {
-              const apt = aptsByTime[time];
+            ) : displayTimes.map((time, idx) => {
+              const apt       = aptsByTime[time];
+              const isOrphan  = !allTimesSet.has(time);
+              const isFirstOrphan = isOrphan && (idx === 0 || allTimesSet.has(displayTimes[idx - 1]));
+              const isPast    = isSlotPast(selectedDateStr, time);
+              const isBlocked = !isPast && !apt && isDateBlocked(selectedDateStr, settings);
+
               return (
-                <div key={time} className={`agenda-slot${apt ? ' busy' : ' avail'}`}>
-                  <span className="agenda-slot-time">{time}</span>
-                  {apt ? (
-                    <button
-                      className={`agenda-slot-apt clickable${apt.status === 'pendente' ? ' pendente' : ''}`}
-                      onClick={() => setDetailApt(apt)}
-                    >
-                      <div className="agenda-slot-info">
-                        <p className="agenda-slot-patient">{apt.patient}</p>
-                        <p className="agenda-slot-proc">{apt.procedure}</p>
-                      </div>
-                      <div className="agenda-slot-right">
-                        <span className="agenda-slot-price">{apt.price}</span>
-                        <span className={`admin-day-badge ${apt.status}`}>{apt.status}</span>
-                        <svg className="agenda-slot-chevron" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                          <path d="M9 18l6-6-6-6"/>
-                        </svg>
-                      </div>
-                    </button>
-                  ) : isSlotPast(selectedDateStr, time) ? (
-                    <span className="agenda-slot-past-label">passado</span>
-                  ) : (
-                    <button
-                      className="agenda-slot-empty-btn"
-                      onClick={() => openModal(time)}
-                      title="Criar agendamento"
-                    >
-                      <span>disponível</span>
-                      <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                <Fragment key={time}>
+                  {isFirstOrphan && hasOrphans && (
+                    <div className="agenda-orphan-divider">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                       </svg>
-                    </button>
+                      Agendamentos fora do horário atual
+                    </div>
                   )}
-                </div>
+                  <div className={`agenda-slot${apt ? (isOrphan ? ' busy orphan' : ' busy') : isBlocked ? ' blocked' : ' avail'}`}>
+                    <span className="agenda-slot-time">{time}</span>
+                    {apt ? (
+                      <button
+                        className={`agenda-slot-apt clickable${apt.status === 'pendente' ? ' pendente' : ''}`}
+                        onClick={() => openDetailApt(apt)}
+                      >
+                        <div className="agenda-slot-info">
+                          <p className="agenda-slot-patient">{apt.patient}</p>
+                          <p className="agenda-slot-proc">
+                            {apt.procedure}
+                            {isOrphan && <span className="agenda-slot-conflict-badge">fora do horário</span>}
+                          </p>
+                        </div>
+                        <div className="agenda-slot-right">
+                          <span className="agenda-slot-price">{apt.price}</span>
+                          <span className={`admin-day-badge ${apt.status}`}>{apt.status}</span>
+                          <svg className="agenda-slot-chevron" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                            <path d="M9 18l6-6-6-6"/>
+                          </svg>
+                        </div>
+                      </button>
+                    ) : isPast ? (
+                      <span className="agenda-slot-past-label">passado</span>
+                    ) : isBlocked ? (
+                      <span className="agenda-slot-past-label blocked-label">bloqueado</span>
+                    ) : (
+                      <button
+                        className="agenda-slot-empty-btn"
+                        onClick={() => openModal(time)}
+                        title="Criar agendamento"
+                      >
+                        <span>disponível</span>
+                        <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </Fragment>
               );
             })}
           </div>
@@ -264,96 +439,279 @@ export default function AgendaPage() {
 
       {/* Appointment detail modal */}
       {detailApt && (
-        <div className="agenda-detail-overlay" onClick={() => setDetailApt(null)}>
+        <div className="agenda-detail-overlay" onClick={closeDetail}>
           <div className="agenda-detail-modal" onClick={e => e.stopPropagation()}>
-            <button className="agenda-detail-close" onClick={() => setDetailApt(null)} aria-label="Fechar">
+            <button className="agenda-detail-close" onClick={closeDetail} aria-label="Fechar">
               <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
             </button>
 
-            <div className="agenda-detail-header">
-              <span className={`admin-day-badge lg ${detailApt.status}`}>{STATUS_LABEL[detailApt.status]}</span>
-              <h3 className="agenda-detail-proc">{detailApt.procedure}</h3>
-              <p className="agenda-detail-date">{formatFullDate(detailApt.date)}</p>
-            </div>
-
-            <div className="agenda-detail-grid">
-              <div className="agenda-detail-item">
-                <span className="agenda-detail-label">Paciente</span>
-                <span className="agenda-detail-value">{detailApt.patient}</span>
-              </div>
-              <div className="agenda-detail-item">
-                <span className="agenda-detail-label">Horário</span>
-                <span className="agenda-detail-value">
-                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                  </svg>
-                  {detailApt.time}
-                </span>
-              </div>
-              <div className="agenda-detail-item">
-                <span className="agenda-detail-label">Valor</span>
-                <span className="agenda-detail-value accent">{detailApt.price}</span>
-              </div>
-              {detailApt.phone && (
-                <div className="agenda-detail-item">
-                  <span className="agenda-detail-label">Telefone</span>
-                  <span className="agenda-detail-value">{detailApt.phone}</span>
+            {/* VIEW MODE */}
+            {detailMode === 'view' && (
+              <>
+                <div className="agenda-detail-header">
+                  <span className={`admin-day-badge lg ${detailApt.status}`}>{STATUS_LABEL[detailApt.status]}</span>
+                  <h3 className="agenda-detail-proc">{detailApt.procedure}</h3>
+                  <p className="agenda-detail-date">{formatFullDate(detailApt.date)}</p>
+                  {/* Aviso se agendamento está fora do horário atual */}
+                  {!allTimesSet.has(detailApt.time) && (
+                    <div className="agenda-detail-conflict">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                      </svg>
+                      Este horário está fora da grade atual. Considere remarcar.
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div className="agenda-detail-actions">
-              {detailApt.phone && (
-                <a
-                  href={waLink(detailApt.phone, detailApt.patient)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="agenda-detail-wa"
-                >
-                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  WhatsApp
-                </a>
-              )}
+                <div className="agenda-detail-grid">
+                  <div className="agenda-detail-item">
+                    <span className="agenda-detail-label">Paciente</span>
+                    <span className="agenda-detail-value">{detailApt.patient}</span>
+                  </div>
+                  <div className="agenda-detail-item">
+                    <span className="agenda-detail-label">Horário</span>
+                    <span className="agenda-detail-value">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      {detailApt.time}
+                    </span>
+                  </div>
+                  <div className="agenda-detail-item">
+                    <span className="agenda-detail-label">Valor</span>
+                    <span className="agenda-detail-value accent">{detailApt.price}</span>
+                  </div>
+                  {detailApt.phone && (
+                    <div className="agenda-detail-item">
+                      <span className="agenda-detail-label">Telefone</span>
+                      <span className="agenda-detail-value">{detailApt.phone}</span>
+                    </div>
+                  )}
+                </div>
 
-              {detailApt.status === 'pendente' && (
-                <>
+                <div className="agenda-detail-actions">
+                  {detailApt.phone && (
+                    <a
+                      href={waLink(detailApt.phone, detailApt.patient)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="agenda-detail-wa"
+                    >
+                      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                      </svg>
+                      WhatsApp
+                    </a>
+                  )}
+
+                  <button className="agenda-detail-action-btn" onClick={openReschedule}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    Remarcar
+                  </button>
+
+                  <button className="agenda-detail-action-btn" onClick={openEdit}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Editar
+                  </button>
+
+                  {detailApt.status === 'pendente' && (
+                    <>
+                      <button
+                        className="agenda-approve-btn lg"
+                        onClick={() => handleApprove(detailApt.id)}
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? (
+                          <span className="login-spinner" style={{ width: 12, height: 12 }} />
+                        ) : (
+                          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                        Aprovar
+                      </button>
+                      <button
+                        className="agenda-reject-btn lg"
+                        onClick={() => handleReject(detailApt.id)}
+                        disabled={actionLoading}
+                      >
+                        <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        Recusar
+                      </button>
+                    </>
+                  )}
+
+                  <button className="agenda-detail-close-btn" onClick={closeDetail}>
+                    Fechar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* RESCHEDULE MODE */}
+            {detailMode === 'reschedule' && (
+              <>
+                <div className="agenda-detail-header">
+                  <p className="agenda-detail-back-label">Remarcar agendamento</p>
+                  <h3 className="agenda-detail-proc">{detailApt.patient}</h3>
+                  <p className="agenda-detail-date">{detailApt.procedure}</p>
+                </div>
+
+                <div className="agenda-reschedule-form">
+                  <div className="agenda-reschedule-date-row">
+                    <label className="na-label">Nova data</label>
+                    <input
+                      type="date"
+                      className="na-input"
+                      min={getLocalDateStr()}
+                      value={reschedDate}
+                      onChange={e => { setReschedDate(e.target.value); setReschedTime(''); }}
+                    />
+                  </div>
+
+                  {reschedDate && (
+                    <div className="agenda-reschedule-times-section">
+                      <p className="agenda-reschedule-times-label">
+                        {reschedLoadingSlots ? 'Verificando disponibilidade...' : 'Selecione o horário'}
+                      </p>
+                      {!reschedLoadingSlots && (
+                        <div className="agenda-reschedule-time-grid">
+                          {allTimes.map(t => {
+                            const booked   = reschedBookedTimes.has(t);
+                            const selected = t === reschedTime;
+                            return (
+                              <button
+                                key={t}
+                                disabled={booked}
+                                onClick={() => { setReschedTime(t); setDetailError(''); }}
+                                className={['agenda-rtime-btn', booked ? 'busy' : 'avail', selected ? 'selected' : ''].filter(Boolean).join(' ')}
+                              >
+                                {t}
+                              </button>
+                            );
+                          })}
+                          {reschedAvailTimes.length === 0 && (
+                            <p className="agenda-reschedule-empty">Sem horários disponíveis neste dia.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {detailError && (
+                    <p className="na-error" style={{ margin: '0 0 4px' }}>
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      {detailError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="agenda-detail-actions">
+                  <button className="agenda-detail-close-btn" onClick={() => { setDetailMode('view'); setDetailError(''); }} disabled={reschedSaving}>
+                    Cancelar
+                  </button>
                   <button
                     className="agenda-approve-btn lg"
-                    onClick={() => handleApprove(detailApt.id)}
-                    disabled={actionLoading}
+                    onClick={handleReschedule}
+                    disabled={reschedSaving || !reschedDate || !reschedTime}
+                    style={{ marginLeft: 'auto' }}
                   >
-                    {actionLoading ? (
+                    {reschedSaving ? (
                       <span className="login-spinner" style={{ width: 12, height: 12 }} />
                     ) : (
-                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <polyline points="20 6 9 17 4 12"/>
                       </svg>
                     )}
-                    Aprovar
+                    {reschedSaving ? 'Salvando...' : 'Confirmar remarcação'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* EDIT MODE */}
+            {detailMode === 'edit' && (
+              <>
+                <div className="agenda-detail-header">
+                  <p className="agenda-detail-back-label">Editar agendamento</p>
+                  <h3 className="agenda-detail-proc">{detailApt.patient}</h3>
+                  <p className="agenda-detail-date">{detailApt.date} · {detailApt.time}</p>
+                </div>
+
+                <div className="agenda-reschedule-form">
+                  <div className="agenda-edit-field">
+                    <label className="na-label">Procedimento</label>
+                    <div className="na-select-wrap">
+                      <select
+                        className="na-select"
+                        value={editProcIdx}
+                        onChange={e => {
+                          const idx = Number(e.target.value);
+                          setEditProcIdx(idx);
+                          setEditPrice(PROCEDURE_CATALOG[idx].price);
+                        }}
+                      >
+                        {PROCEDURE_CATALOG.map((p, i) => (
+                          <option key={p.name} value={i}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="agenda-edit-field">
+                    <label className="na-label">Valor cobrado</label>
+                    <input
+                      className="na-input"
+                      placeholder="R$ 0,00"
+                      value={editPrice}
+                      onChange={e => setEditPrice(maskPrice(e.target.value))}
+                      inputMode="numeric"
+                    />
+                    <span className="agenda-edit-hint">Sugerido: {PROCEDURE_CATALOG[editProcIdx].price}</span>
+                  </div>
+
+                  {detailError && (
+                    <p className="na-error" style={{ margin: '0 0 4px' }}>
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      {detailError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="agenda-detail-actions">
+                  <button className="agenda-detail-close-btn" onClick={() => { setDetailMode('view'); setDetailError(''); }} disabled={editSaving}>
+                    Cancelar
                   </button>
                   <button
-                    className="agenda-reject-btn lg"
-                    onClick={() => handleReject(detailApt.id)}
-                    disabled={actionLoading}
+                    className="agenda-approve-btn lg"
+                    onClick={handleEditSave}
+                    disabled={editSaving}
+                    style={{ marginLeft: 'auto' }}
                   >
-                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                    Recusar
+                    {editSaving ? (
+                      <span className="login-spinner" style={{ width: 12, height: 12 }} />
+                    ) : (
+                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                    {editSaving ? 'Salvando...' : 'Salvar alterações'}
                   </button>
-                </>
-              )}
-
-              {detailApt.status !== 'pendente' && (
-                <button className="agenda-detail-close-btn" onClick={() => setDetailApt(null)}>
-                  Fechar
-                </button>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

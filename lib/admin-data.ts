@@ -120,6 +120,32 @@ export async function updateAppointmentStatus(
   return !error
 }
 
+export async function updateAppointment(
+  id: string,
+  updates: {
+    date?:      string
+    time?:      string
+    procedure?: string
+    price?:     string
+    priceNum?:  number
+    status?:    'confirmado' | 'pendente' | 'cancelado'
+  },
+  client?: SupabaseClient
+): Promise<boolean> {
+  const supabase = client ?? createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload: Record<string, any> = { updated_at: new Date().toISOString() }
+  if (updates.date      !== undefined) payload.date      = updates.date
+  if (updates.time      !== undefined) payload.time      = updates.time
+  if (updates.procedure !== undefined) payload.procedure = updates.procedure
+  if (updates.price     !== undefined) payload.price     = updates.price
+  if (updates.priceNum  !== undefined) payload.price_num = updates.priceNum
+  if (updates.status    !== undefined) payload.status    = updates.status
+  const { error } = await supabase.from('appointments').update(payload).eq('id', id)
+  if (error) console.error('[data] updateAppointment error:', error.message)
+  return !error
+}
+
 export async function getClientAppointments(userId: string, client?: SupabaseClient): Promise<AdminAppointment[]> {
   const supabase = client ?? createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
