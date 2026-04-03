@@ -1403,6 +1403,41 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
    CLIENTES PAGE
 ═══════════════════════════════════════════════════════════ */
 .clientes-page { padding-bottom:80px; }
+/* Admin tabs */
+.admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:28px; }
+.admin-tab-btn { padding:10px 20px; font-size:.74rem; font-weight:400; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); border-bottom:2px solid transparent; transition:all .2s; margin-bottom:-1px; font-family:var(--font-u); background:transparent; cursor:pointer; }
+.admin-tab-btn.active { color:var(--forest); border-bottom-color:var(--emerald); }
+.admin-tab-btn:hover:not(.active) { color:var(--forest); }
+
+/* "Nova funcionária" button */
+.admin-new-btn { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; background:var(--forest); color:var(--white); border-radius:4px; font-family:var(--font-u); font-size:.74rem; font-weight:400; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:background .3s; flex-shrink:0; }
+.admin-new-btn:hover { background:var(--emerald); }
+
+/* Staff list */
+.staff-list { display:flex; flex-direction:column; gap:8px; max-width:700px; }
+.staff-row { display:flex; align-items:center; gap:16px; padding:14px 20px; background:var(--white); border:1px solid var(--border); border-radius:8px; }
+.staff-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-d); font-size:.95rem; font-weight:400; color:var(--white); flex-shrink:0; }
+.staff-info { flex:1; min-width:0; }
+.staff-name { font-size:.88rem; font-weight:400; color:var(--text); }
+.staff-phone { font-size:.75rem; font-weight:300; color:var(--text-muted); margin-top:2px; }
+.staff-role-badge { font-size:.64rem; font-weight:500; letter-spacing:.1em; text-transform:uppercase; padding:4px 10px; border-radius:50px; flex-shrink:0; }
+.staff-role-badge.admin { background:rgba(10,10,10,.08); color:var(--forest); }
+.staff-role-badge.funcionario { background:var(--emerald-pale); color:var(--emerald); }
+.staff-edit-btn { padding:7px 16px; font-size:.72rem; font-weight:400; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--border-mid); border-radius:4px; color:var(--text-mid); transition:all .2s; flex-shrink:0; font-family:var(--font-u); cursor:pointer; }
+.staff-edit-btn:hover { border-color:var(--emerald); color:var(--emerald); background:var(--emerald-pale); }
+
+/* Inline edit form inside cliente panel */
+.cliente-panel-edit { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--text-muted); transition:all .2s; flex-shrink:0; }
+.cliente-panel-edit:hover { background:var(--emerald-pale); color:var(--emerald); }
+.cliente-edit-form { padding:20px 24px; display:flex; flex-direction:column; gap:14px; }
+.cliente-edit-actions { display:flex; gap:8px; margin-top:4px; }
+.cliente-edit-cancel { flex:1; padding:10px; font-family:var(--font-u); font-size:.74rem; font-weight:400; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--border-mid); border-radius:4px; color:var(--text-mid); cursor:pointer; transition:all .2s; }
+.cliente-edit-cancel:hover { background:var(--ivory-alt); }
+.cliente-edit-cancel:disabled { opacity:.4; cursor:default; }
+.cliente-edit-save { flex:2; padding:10px; font-family:var(--font-u); font-size:.74rem; font-weight:400; letter-spacing:.06em; text-transform:uppercase; background:var(--forest); color:var(--white); border-radius:4px; cursor:pointer; transition:background .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+.cliente-edit-save:hover { background:var(--emerald); }
+.cliente-edit-save:disabled { opacity:.5; cursor:default; }
+
 .clientes-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:32px; gap:20px; flex-wrap:wrap; }
 .clientes-search-wrap { position:relative; display:flex; align-items:center; }
 .clientes-search-icon { position:absolute; left:14px; color:var(--text-muted); pointer-events:none; }

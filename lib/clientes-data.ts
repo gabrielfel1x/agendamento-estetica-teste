@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 import { AdminAppointment, getAppointmentsByDay, getAllAppointments } from './admin-data';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -7,42 +8,73 @@ export interface Cliente {
   id: string;
   name: string;
   phone: string;
-  email: string;
+  email: string | null;
   since: string; // YYYY-MM-DD
+  notes: string | null;
+  profileId: string | null;
 }
 
-// Mock temporário — substituído na Fase 5 (migração de clientes para Supabase)
-export const CLIENTES: Cliente[] = [
-  { id:'c01', name:'Sophia Andrade',     phone:'11987651001', email:'sophia@email.com',    since:'2026-01-15' },
-  { id:'c02', name:'Isabela Torres',     phone:'11987651002', email:'isabela@email.com',   since:'2026-01-22' },
-  { id:'c03', name:'Camila Rodrigues',   phone:'11987651003', email:'camila@email.com',    since:'2025-11-08' },
-  { id:'c04', name:'Larissa Nunes',      phone:'11987651004', email:'larissa@email.com',   since:'2026-02-03' },
-  { id:'c05', name:'Fernanda Lima',      phone:'11987651005', email:'fernanda@email.com',  since:'2025-10-14' },
-  { id:'c06', name:'Bianca Souza',       phone:'11987651006', email:'bianca@email.com',    since:'2026-01-30' },
-  { id:'c07', name:'Priscila Melo',      phone:'11987651008', email:'priscila@email.com',  since:'2025-09-20' },
-  { id:'c08', name:'Amanda Ramos',       phone:'11987651010', email:'amanda@email.com',    since:'2025-12-01' },
-  { id:'c09', name:'Ana Paula Mendes',   phone:'11987651013', email:'ana@email.com',       since:'2025-08-15' },
-  { id:'c10', name:'Camila Ferreira',    phone:'11987651018', email:'camilaf@email.com',   since:'2025-07-22' },
-  { id:'c11', name:'Julia Santos',       phone:'11987651027', email:'julia@email.com',     since:'2025-11-30' },
-  { id:'c12', name:'Tatiana Bezerra',    phone:'11987651036', email:'tatiana@email.com',   since:'2026-01-05' },
-];
-
-export async function getClienteHistory(clientePhone: string, client?: SupabaseClient): Promise<AdminAppointment[]> {
-  const all = await getAllAppointments(client);
-  return all
-    .filter(a => a.phone === clientePhone)
-    .sort((a, b) => b.date.localeCompare(a.date));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToCliente(row: any): Cliente {
+  return {
+    id:        row.id,
+    name:      row.name,
+    phone:     row.phone,
+    email:     row.email   ?? null,
+    since:     row.since,
+    notes:     row.notes   ?? null,
+    profileId: row.profile_id ?? null,
+  };
 }
 
-export async function getClienteTotalAppointments(clientePhone: string, client?: SupabaseClient): Promise<number> {
-  const all = await getAllAppointments(client);
-  return all.filter(a => a.phone === clientePhone && a.status !== 'cancelado').length;
+export async function getClientes(client?: SupabaseClient): Promise<Cliente[]> {
+  const supabase = client ?? createClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('*')
+    .order('name') as any;
+  if (error) console.error('[data] getClientes error:', error.message);
+  if (!data) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map(rowToCliente);
 }
 
-export async function getClienteLastProcedure(clientePhone: string, client?: SupabaseClient): Promise<string | null> {
-  const history = (await getClienteHistory(clientePhone, client)).filter(a => a.status !== 'cancelado');
-  return history[0]?.procedure ?? null;
+export async function addCliente(
+  c: { name: string; phone: string; email?: string; notes?: string },
+  client?: SupabaseClient
+): Promise<Cliente | null> {
+  const supabase = client ?? createClient();
+  const { data } = await supabase
+    .from('clientes')
+    .insert({ name: c.name, phone: c.phone, email: c.email ?? null, notes: c.notes ?? null })
+    .select()
+    .single();
+  if (!data) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rowToCliente(data as any);
 }
 
-// Re-exporta getAppointmentsByDay para uso nos componentes de cliente
+export async function updateCliente(
+  id: string,
+  updates: { name?: string; phone?: string; email?: string | null; notes?: string | null },
+  client?: SupabaseClient
+): Promise<boolean> {
+  const supabase = client ?? createClient();
+  const { error } = await supabase
+    .from('clientes')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) console.error('[data] updateCliente error:', error.message);
+  return !error;
+}
+
+export async function deleteCliente(id: string, client?: SupabaseClient): Promise<boolean> {
+  const supabase = client ?? createClient();
+  const { error } = await supabase.from('clientes').delete().eq('id', id);
+  if (error) console.error('[data] deleteCliente error:', error.message);
+  return !error;
+}
+
+// Re-exporta para uso nos componentes de cliente
 export { getAppointmentsByDay };
