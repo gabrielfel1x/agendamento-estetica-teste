@@ -30,7 +30,8 @@ function getLocalDateStr() {
 
 function isTimePast(dateStr: string, time: string) {
   const todayStr = getLocalDateStr();
-  if (dateStr !== todayStr) return false;
+  if (dateStr < todayStr) return true;
+  if (dateStr > todayStr) return false;
   const now = new Date();
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m <= now.getHours() * 60 + now.getMinutes() + 30;
@@ -118,7 +119,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     return false;
   }
 
-  const canGoPrev = calYear > now.getFullYear() || calMonth > now.getMonth();
+  const canGoPrev = calYear > now.getFullYear() || (calYear === now.getFullYear() && calMonth > now.getMonth());
 
   function prevMonth() {
     if (!canGoPrev) return;
@@ -143,6 +144,11 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     if (!selectedTime) { setError('Selecione um horário disponível.'); return; }
     if (isTimePast(selectedDate, selectedTime)) {
       setError('Este horário já passou. Selecione outro.');
+      setSelectedTime('');
+      return;
+    }
+    if (bookedTimes.has(selectedTime)) {
+      setError('Este horário acabou de ser ocupado. Selecione outro.');
       setSelectedTime('');
       return;
     }

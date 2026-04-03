@@ -22,8 +22,9 @@ function getLocalDateStr() {
 }
 
 function isSlotPast(dateStr: string, time: string): boolean {
-  if (dateStr < TODAY_STR) return true;
-  if (dateStr > TODAY_STR) return false;
+  const todayStr = getLocalDateStr();
+  if (dateStr < todayStr) return true;
+  if (dateStr > todayStr) return false;
   const now = new Date();
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m <= now.getHours() * 60 + now.getMinutes() + 30;
@@ -170,6 +171,24 @@ export default function AgendaPage() {
   async function handleReschedule() {
     if (!detailApt || !reschedDate || !reschedTime) {
       setDetailError('Selecione data e horário.');
+      return;
+    }
+    if (reschedDate < getLocalDateStr()) {
+      setDetailError('Não é possível remarcar para uma data passada.');
+      return;
+    }
+    if (isDateBlocked(reschedDate, settings)) {
+      setDetailError('Esta data está bloqueada.');
+      return;
+    }
+    if (isSlotPast(reschedDate, reschedTime)) {
+      setDetailError('Este horário já passou.');
+      setReschedTime('');
+      return;
+    }
+    if (reschedBookedTimes.has(reschedTime)) {
+      setDetailError('Este horário está ocupado.');
+      setReschedTime('');
       return;
     }
     setReschedSaving(true);
@@ -571,11 +590,14 @@ export default function AgendaPage() {
                     <label className="na-label">Nova data</label>
                     <input
                       type="date"
-                      className="na-input"
+                      className={`na-input${reschedDate && isDateBlocked(reschedDate, settings) ? ' na-input-error' : ''}`}
                       min={getLocalDateStr()}
                       value={reschedDate}
-                      onChange={e => { setReschedDate(e.target.value); setReschedTime(''); }}
+                      onChange={e => { setReschedDate(e.target.value); setReschedTime(''); setDetailError(''); }}
                     />
+                    {reschedDate && isDateBlocked(reschedDate, settings) && (
+                      <span className="na-field-error">Esta data está bloqueada ou é um dia sem atendimento.</span>
+                    )}
                   </div>
 
                   {reschedDate && (
@@ -587,13 +609,15 @@ export default function AgendaPage() {
                         <div className="agenda-reschedule-time-grid">
                           {allTimes.map(t => {
                             const booked   = reschedBookedTimes.has(t);
+                            const isPast   = isSlotPast(reschedDate, t);
+                            const blocked  = booked || isPast;
                             const selected = t === reschedTime;
                             return (
                               <button
                                 key={t}
-                                disabled={booked}
+                                disabled={blocked}
                                 onClick={() => { setReschedTime(t); setDetailError(''); }}
-                                className={['agenda-rtime-btn', booked ? 'busy' : 'avail', selected ? 'selected' : ''].filter(Boolean).join(' ')}
+                                className={['agenda-rtime-btn', blocked ? 'busy' : 'avail', selected ? 'selected' : ''].filter(Boolean).join(' ')}
                               >
                                 {t}
                               </button>
