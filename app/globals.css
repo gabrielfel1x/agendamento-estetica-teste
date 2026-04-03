@@ -822,14 +822,14 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 .admin-cal-occ-bar { width:5px; height:3px; border-radius:2px; background:var(--emerald-pale); }
 .admin-cal-day.low    .admin-cal-occ-bar { background:var(--emerald-pale); border:1px solid var(--emerald); }
 .admin-cal-day.medium .admin-cal-occ-bar { background:var(--emerald); }
-.admin-cal-day.high   .admin-cal-occ-bar { background:var(--gold); }
+.admin-cal-day.high   .admin-cal-occ-bar { background:#c0607a; }
 .admin-cal-day.selected .admin-cal-occ-bar { background:rgba(255,255,255,.4); }
 .admin-cal-legend { display:flex; gap:16px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap; }
 .admin-cal-legend-item { display:flex; align-items:center; gap:6px; font-size:.68rem; color:var(--text-muted); letter-spacing:.04em; }
 .admin-cal-legend-dot { width:8px; height:8px; border-radius:50%; }
 .admin-cal-legend-dot.low    { background:var(--emerald-pale); border:1px solid var(--emerald); }
 .admin-cal-legend-dot.medium { background:var(--emerald); }
-.admin-cal-legend-dot.high   { background:var(--gold); }
+.admin-cal-legend-dot.high   { background:#c0607a; }
 
 /* Day panel */
 .admin-day-panel { background:var(--white); border:1px solid var(--border); border-radius:8px; padding:28px; }
