@@ -13,14 +13,11 @@ interface Props {
 
 const WEEKDAYS  = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-/** Retorna a data e hora atuais em tempo real */
+/** Retorna a data local e hora atuais */
 function getNow() {
   const n = new Date();
-  return {
-    dateStr: n.toISOString().slice(0, 10),
-    hours: n.getHours(),
-    minutes: n.getMinutes(),
-  };
+  const dateStr = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  return { dateStr, hours: n.getHours(), minutes: n.getMinutes() };
 }
 
 /** Verifica se um horário já passou (ou está a menos de 30min) para determinada data */
@@ -143,7 +140,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
       price:     procedure.price,
       date:      selectedDate,
       time:      selectedTime,
-      status:    'confirmado',
+      status:    'pendente',
     }, user!.id);
     setSaving(false);
 

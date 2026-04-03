@@ -106,6 +106,20 @@ export async function addAppointment(
   return rowToAppointment(data as any)
 }
 
+export async function updateAppointmentStatus(
+  id: string,
+  status: 'confirmado' | 'cancelado',
+  client?: SupabaseClient
+): Promise<boolean> {
+  const supabase = client ?? createClient()
+  const { error } = await supabase
+    .from('appointments')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) console.error('[data] updateAppointmentStatus error:', error.message)
+  return !error
+}
+
 export async function getClientAppointments(userId: string, client?: SupabaseClient): Promise<AdminAppointment[]> {
   const supabase = client ?? createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

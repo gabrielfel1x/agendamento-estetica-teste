@@ -55,6 +55,9 @@ export default function MinhaContaPage() {
     if (loaded && !user) router.replace('/login');
   }, [loaded, user, router]);
 
+  const [aptsKey, setAptsKey] = useState(0);
+  const reloadApts = () => setAptsKey(k => k + 1);
+
   // Carrega agendamentos do cliente logado
   useEffect(() => {
     if (!user) return;
@@ -63,7 +66,7 @@ export default function MinhaContaPage() {
       setApts(data);
       setLoadingApts(false);
     });
-  }, [user?.id]);
+  }, [user?.id, aptsKey]);
 
   function handleCancel() {
     updateUser({ planStatus: 'cancelado' });
@@ -78,6 +81,7 @@ export default function MinhaContaPage() {
   function handleAgendaSaved() {
     setShowAgenda(false);
     setAgendaSaved(true);
+    reloadApts();
     setTimeout(() => setAgendaSaved(false), 4000);
   }
 
@@ -162,7 +166,7 @@ export default function MinhaContaPage() {
               <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M20 6L9 17l-5-5"/>
               </svg>
-              Agendamento criado com sucesso!
+              Solicitação enviada! Aguardando aprovação da clínica.
             </div>
           )}
 
