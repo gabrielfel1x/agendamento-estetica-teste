@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { PROCEDURE_CATALOG } from '@/lib/constants';
-import { addAppointment } from '@/lib/admin-data';
+import { addAppointment, getAppointmentsByDay } from '@/lib/admin-data';
 import { createStaffClient } from '@/lib/supabase/client';
 import { getClinicSettings, generateTimes, DEFAULT_SETTINGS, type ClinicSettings } from '@/lib/clinic-settings';
 
@@ -68,14 +68,18 @@ function buildCalendar(year: number, month: number): (number | null)[] {
 const EMPTY = { name: '', phone: '', procedure: 0, payment: 'Pix', value: '', obs: '', date: '', time: '' };
 
 export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, defaultTime, onSaved, clinicSettings }: Props) {
-  // fromSlot = aberto clicando num horário específico na agenda
-  const fromSlot = !!(defaultDate && defaultTime);
-
   const [settings,  setSettings]  = useState<ClinicSettings>(clinicSettings ?? DEFAULT_SETTINGS);
   const [form, setForm]     = useState({ ...EMPTY });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const staffClient = useMemo(() => createStaffClient(), []);
+
+  // fromSlot = aberto clicando num horário específico na agenda (só se a data não for bloqueada)
+  const fromSlot = !!(defaultDate && defaultTime) && form.date === defaultDate && form.time === defaultTime;
+
+  // Booked times state
+  const [bookedTimes,  setBookedTimes]  = useState<Set<string>>(new Set());
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Calendar state
   const now = new Date();
@@ -90,12 +94,30 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
   useEffect(() => {
     if (isOpen) {
       const n = new Date();
+      const s = clinicSettings ?? settings;
+
+      // Check if defaultDate is blocked
+      let usableDate = defaultDate || '';
+      let usableTime = defaultTime || '';
+      if (usableDate) {
+        const dow = new Date(`${usableDate}T12:00:00`).getDay();
+        const todayStr = getLocalDateStr();
+        const blocked =
+          usableDate < todayStr ||
+          !s.active_weekdays.includes(dow) ||
+          s.blocked_dates.includes(usableDate);
+        if (blocked) {
+          usableDate = '';
+          usableTime = '';
+        }
+      }
+
       setForm({
         ...EMPTY,
         procedure: 0,
         value: PROCEDURE_CATALOG[0].price,
-        date: defaultDate || '',
-        time: defaultTime || '',
+        date: usableDate,
+        time: usableTime,
       });
       setErrors({});
       // Reset calendar to current month (or defaultDate month)
@@ -125,11 +147,23 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
     setErrors(e => ({ ...e, [key]: '' }));
   }
 
+  // Carrega horários já ocupados quando a data muda
+  useEffect(() => {
+    if (!form.date || fromSlot) { setBookedTimes(new Set()); return; }
+    setLoadingSlots(true);
+    getAppointmentsByDay(form.date, staffClient).then(apts => {
+      setBookedTimes(new Set(
+        apts.filter(a => a.status !== 'cancelado').map(a => a.time)
+      ));
+      setLoadingSlots(false);
+    });
+  }, [form.date]);
+
   const allTimes = useMemo(
     () => generateTimes(settings.start_hour, settings.end_hour, settings.slot_interval),
     [settings]
   );
-  const availableTimes = allTimes.filter(t => !isTimePast(form.date, t));
+  const availableTimes = allTimes.filter(t => !isTimePast(form.date, t) && !bookedTimes.has(t));
 
   // Calendar helpers
   const calDays = useMemo(() => buildCalendar(calYear, calMonth), [calYear, calMonth]);
@@ -189,6 +223,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
     else if (isSelectedDateBlocked()) errs.date = 'Esta data está bloqueada.';
     if (!form.time) errs.time = 'Selecione um horário.';
     else if (isTimePast(form.date, form.time)) errs.time = 'Horário já passou.';
+    else if (bookedTimes.has(form.time)) errs.time = 'Horário já ocupado.';
     return errs;
   }
 
@@ -342,9 +377,9 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
                     className={`na-select${errors.time ? ' na-input-error' : ''}`}
                     value={form.time}
                     onChange={e => set('time', e.target.value)}
-                    disabled={!form.date}
+                    disabled={!form.date || loadingSlots}
                   >
-                    <option value="">Selecione</option>
+                    <option value="">{!form.date ? 'Selecione uma data' : loadingSlots ? 'Carregando...' : 'Selecione'}</option>
                     {availableTimes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
