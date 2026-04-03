@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAdminAuth } from '@/lib/admin-auth-context';
-import { getClientes, updateCliente, Cliente } from '@/lib/clientes-data';
+import { getClientes, updateCliente, deleteCliente, Cliente } from '@/lib/clientes-data';
 import { getAllAppointments, AdminAppointment } from '@/lib/admin-data';
-import { getStaffProfiles, updateStaffProfile, createStaffUser, StaffProfile } from '@/lib/staff-data';
+import { getStaffProfiles, updateStaffProfile, deleteStaffProfile, createStaffUser, StaffProfile } from '@/lib/staff-data';
 import { createStaffClient } from '@/lib/supabase/client';
 
 function waLink(phone: string, name: string) {
@@ -77,6 +77,12 @@ export default function ClientesPage() {
   const [createSaving, setCreateSaving]   = useState(false);
   const [createError, setCreateError]     = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
+
+  // Confirm-delete state
+  const [confirmDeleteCliente, setConfirmDeleteCliente] = useState(false);
+  const [deletingCliente, setDeletingCliente]           = useState(false);
+  const [confirmDeleteStaff, setConfirmDeleteStaff]     = useState<StaffProfile | null>(null);
+  const [deletingStaff, setDeletingStaff]               = useState(false);
 
   const staffClient = useMemo(() => createStaffClient(), []);
 
@@ -336,6 +342,24 @@ export default function ClientesPage() {
                           {editCSaving ? 'Salvando...' : 'Salvar'}
                         </button>
                       </div>
+                      <div className="cliente-edit-danger">
+                        {confirmDeleteCliente ? (
+                          <>
+                            <span className="cliente-edit-danger-msg">Confirmar exclusão permanente?</span>
+                            <button className="cliente-danger-confirm" onClick={handleDeleteCliente} disabled={deletingCliente}>
+                              {deletingCliente ? <span className="login-spinner" style={{ width: 11, height: 11 }} /> : 'Excluir'}
+                            </button>
+                            <button className="cliente-danger-cancel" onClick={() => setConfirmDeleteCliente(false)} disabled={deletingCliente}>Cancelar</button>
+                          </>
+                        ) : (
+                          <button className="cliente-danger-btn" onClick={() => setConfirmDeleteCliente(true)}>
+                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                            </svg>
+                            Excluir cliente
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -355,6 +379,13 @@ export default function ClientesPage() {
                             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
                               <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button className="cliente-panel-delete" onClick={() => { setEditCError(''); setConfirmDeleteCliente(true); }} title="Excluir cliente">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
                             </svg>
                           </button>
                         )}
@@ -437,7 +468,14 @@ export default function ClientesPage() {
                 </div>
                 <span className={`staff-role-badge ${s.role}`}>{ROLE_LABEL[s.role] ?? s.role}</span>
                 {s.id !== user?.id && (
-                  <button className="staff-edit-btn" onClick={() => openEditStaff(s)}>Editar</button>
+                  <>
+                    <button className="staff-edit-btn" onClick={() => openEditStaff(s)}>Editar</button>
+                    <button className="staff-delete-btn" onClick={() => setConfirmDeleteStaff(s)} title="Excluir">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>
+                  </>
                 )}
               </div>
             ))}
@@ -571,6 +609,39 @@ export default function ClientesPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* ══ MODAL: Confirm Delete Staff ══ */}
+      {confirmDeleteStaff && (
+        <div className="na-overlay" onClick={e => { if (e.target === e.currentTarget) setConfirmDeleteStaff(null); }}>
+          <div className="na-modal" style={{ maxWidth: 400 }}>
+            <div className="na-modal-header">
+              <div>
+                <h2 className="na-modal-title">Excluir funcionária</h2>
+                <p className="na-modal-sub">{confirmDeleteStaff.name}</p>
+              </div>
+              <button className="na-close" onClick={() => setConfirmDeleteStaff(null)}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div className="na-modal-body">
+              <p style={{ fontSize: '.86rem', fontWeight: 300, color: 'var(--text-mid)', lineHeight: 1.6 }}>
+                Tem certeza que deseja excluir <strong>{confirmDeleteStaff.name}</strong>? O acesso ao sistema será removido.
+              </p>
+            </div>
+            <div className="na-modal-footer">
+              <button className="na-cancel" onClick={() => setConfirmDeleteStaff(null)} disabled={deletingStaff}>Cancelar</button>
+              <button className="na-save" style={{ background: '#b54a4a' }} onClick={handleDeleteStaff} disabled={deletingStaff}>
+                {deletingStaff
+                  ? <span className="login-spinner" style={{ width: 12, height: 12 }} />
+                  : <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                }
+                {deletingStaff ? 'Excluindo...' : 'Confirmar exclusão'}
+              </button>
+            </div>
           </div>
         </div>
       )}

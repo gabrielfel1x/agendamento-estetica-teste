@@ -1425,6 +1425,23 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 .staff-role-badge.funcionario { background:var(--emerald-pale); color:var(--emerald); }
 .staff-edit-btn { padding:7px 16px; font-size:.72rem; font-weight:400; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--border-mid); border-radius:4px; color:var(--text-mid); transition:all .2s; flex-shrink:0; font-family:var(--font-u); cursor:pointer; }
 .staff-edit-btn:hover { border-color:var(--emerald); color:var(--emerald); background:var(--emerald-pale); }
+.staff-delete-btn { width:30px; height:30px; border-radius:4px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); border:1px solid var(--border-mid); transition:all .2s; flex-shrink:0; cursor:pointer; }
+.staff-delete-btn:hover { border-color:#b54a4a; color:#b54a4a; background:#fdf0f0; }
+
+/* Cliente panel delete button */
+.cliente-panel-delete { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--text-muted); transition:all .2s; flex-shrink:0; }
+.cliente-panel-delete:hover { background:#fdf0f0; color:#b54a4a; }
+
+/* Danger zone in edit form */
+.cliente-edit-danger { display:flex; align-items:center; gap:8px; padding-top:10px; border-top:1px solid var(--border); margin-top:4px; flex-wrap:wrap; }
+.cliente-edit-danger-msg { flex:1; font-size:.78rem; font-weight:300; color:#b54a4a; }
+.cliente-danger-btn { display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:400; letter-spacing:.06em; text-transform:uppercase; color:rgba(181,74,74,.7); transition:color .2s; font-family:var(--font-u); cursor:pointer; padding:0; }
+.cliente-danger-btn:hover { color:#b54a4a; }
+.cliente-danger-confirm { padding:6px 14px; background:#b54a4a; color:var(--white); border-radius:4px; font-family:var(--font-u); font-size:.7rem; font-weight:400; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; transition:background .2s; display:flex; align-items:center; gap:6px; }
+.cliente-danger-confirm:hover { background:#963c3c; }
+.cliente-danger-confirm:disabled { opacity:.5; cursor:default; }
+.cliente-danger-cancel { padding:6px 14px; border:1px solid var(--border-mid); border-radius:4px; font-family:var(--font-u); font-size:.7rem; font-weight:400; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); cursor:pointer; transition:all .2s; }
+.cliente-danger-cancel:hover { background:var(--ivory-alt); }
 
 /* Inline edit form inside cliente panel */
 .cliente-panel-edit { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--text-muted); transition:all .2s; flex-shrink:0; }

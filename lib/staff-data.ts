@@ -44,6 +44,16 @@ export async function updateStaffProfile(
   return !error;
 }
 
+export async function deleteStaffProfile(
+  id: string,
+  client: SupabaseClient,
+): Promise<boolean> {
+  // Removes the profile row; the auth user record remains (Supabase Admin API needed to delete that)
+  const { error } = await client.from('profiles').delete().eq('id', id);
+  if (error) console.error('[staff] deleteStaffProfile:', error.message);
+  return !error;
+}
+
 export async function createStaffUser(
   email: string,
   password: string,
