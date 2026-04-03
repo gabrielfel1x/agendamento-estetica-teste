@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { PROCEDURE_CATALOG } from '@/lib/constants';
-import { getAppointmentsByDay, addAppointment } from '@/lib/admin-data';
+import { addAppointment } from '@/lib/admin-data';
+import { createClient } from '@/lib/supabase/client';
 import {
-  fetchClinicSettingsPublic,
   generateTimes,
   DEFAULT_SETTINGS,
   type ClinicSettings,
@@ -53,6 +53,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
 
   const now = new Date();
   const [settings,     setSettings]     = useState<ClinicSettings>(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [step,         setStep]         = useState<'procedure' | 'datetime'>('procedure');
   const [procIdx,      setProcIdx]      = useState(0);
   const [calYear,      setCalYear]      = useState(now.getFullYear());
@@ -64,10 +65,34 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   const [error,        setError]        = useState('');
   const [saving,       setSaving]       = useState(false);
 
-  // Carrega configurações da clínica (via API pública para funcionar sem sessão de staff)
+  // Carrega configurações diretamente do Supabase usando a sessão do cliente autenticado
+  // (não usa cache nem API route, que dependem de service role key)
   useEffect(() => {
-    fetchClinicSettingsPublic().then(setSettings);
-  }, []);
+    if (!isOpen) return;
+    setSettingsLoaded(false);
+    const supabase = createClient();
+    supabase
+      .from('clinic_settings')
+      .select('*')
+      .eq('id', 'default')
+      .single()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data, error }: any) => {
+        if (error || !data) {
+          setSettings(DEFAULT_SETTINGS);
+        } else {
+          setSettings({
+            active_weekdays: data.active_weekdays ?? DEFAULT_SETTINGS.active_weekdays,
+            start_hour:      data.start_hour      ?? DEFAULT_SETTINGS.start_hour,
+            end_hour:        data.end_hour        ?? DEFAULT_SETTINGS.end_hour,
+            slot_interval:   data.slot_interval   ?? DEFAULT_SETTINGS.slot_interval,
+            blocked_dates:   (data.blocked_dates  ?? []).map((d: string) => String(d).slice(0, 10)),
+          });
+        }
+        setSettingsLoaded(true);
+      })
+      .catch(() => { setSettings(DEFAULT_SETTINGS); setSettingsLoaded(true); });
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -92,10 +117,13 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   useEffect(() => {
     if (!selectedDate) { setBookedTimes(new Set()); return; }
     setLoadingSlots(true);
-    getAppointmentsByDay(selectedDate).then(apts => {
-      setBookedTimes(new Set(apts.filter(a => a.status !== 'cancelado').map(a => a.time)));
-      setLoadingSlots(false);
-    });
+    fetch(`/api/booked-slots?date=${selectedDate}`)
+      .then(r => r.json())
+      .then(({ booked }) => {
+        setBookedTimes(new Set(booked as string[]));
+        setLoadingSlots(false);
+      })
+      .catch(() => setLoadingSlots(false));
   }, [selectedDate]);
 
   const procedure  = PROCEDURE_CATALOG[procIdx];
@@ -139,8 +167,21 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     setError('');
   }
 
+  function isDateBlocked(ds: string): boolean {
+    const dow = new Date(`${ds}T12:00:00`).getDay();
+    if (!settings.active_weekdays.includes(dow)) return true;
+    if (settings.blocked_dates.includes(ds)) return true;
+    return false;
+  }
+
   async function handleConfirm() {
     if (!selectedDate) { setError('Selecione uma data.'); return; }
+    if (isDateBlocked(selectedDate)) {
+      setError('Esta data está bloqueada. Selecione outra data.');
+      setSelectedDate('');
+      setSelectedTime('');
+      return;
+    }
     if (!selectedTime) { setError('Selecione um horário disponível.'); return; }
     if (isTimePast(selectedDate, selectedTime)) {
       setError('Este horário já passou. Selecione outro.');
@@ -193,7 +234,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
           </button>
         </div>
 
-        <div className="clt-progress">
+        <div className="clt-progress" style={{ marginTop: 36 }}>
           <div className={`clt-step ${step === 'procedure' ? 'active' : 'done'}`}>
             <span className="clt-step-num">
               {step === 'datetime'
@@ -233,40 +274,49 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
           {step === 'datetime' && (
             <div className="clt-datetime">
               <div className="clt-cal">
-                <div className="clt-cal-nav-row">
-                  <button className="clt-cal-arrow" onClick={prevMonth} disabled={!canGoPrev}>
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                      <path d="M15 18l-6-6 6-6"/>
-                    </svg>
-                  </button>
-                  <span className="clt-cal-month-label">{MONTHS_PT[calMonth]} {calYear}</span>
-                  <button className="clt-cal-arrow" onClick={nextMonth}>
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                      <path d="M9 18l6-6-6-6"/>
-                    </svg>
-                  </button>
-                </div>
-                <div className="clt-cal-grid">
-                  {WEEKDAYS.map(w => (
-                    <div key={w} className="clt-cal-wday">{w}</div>
-                  ))}
-                  {calDays.map((d, i) => {
-                    if (!d) return <div key={`e-${i}`} className="clt-cal-day empty" />;
-                    const disabled = isDisabled(d);
-                    const selected = toDateStr(d) === selectedDate;
-                    const isToday  = toDateStr(d) === getLocalDateStr();
-                    return (
-                      <button
-                        key={d}
-                        disabled={disabled}
-                        onClick={() => selectDay(d)}
-                        className={['clt-cal-day', disabled ? 'disabled' : '', selected ? 'selected' : '', isToday ? 'today' : ''].filter(Boolean).join(' ')}
-                      >
-                        {d}
+                {!settingsLoaded ? (
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:180, color:'var(--text-muted)', fontSize:'.8rem', gap:8 }}>
+                    <span className="login-spinner" style={{ width:14, height:14 }} />
+                    Carregando disponibilidade...
+                  </div>
+                ) : (
+                  <>
+                    <div className="clt-cal-nav-row">
+                      <button className="clt-cal-arrow" onClick={prevMonth} disabled={!canGoPrev}>
+                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                          <path d="M15 18l-6-6 6-6"/>
+                        </svg>
                       </button>
-                    );
-                  })}
-                </div>
+                      <span className="clt-cal-month-label">{MONTHS_PT[calMonth]} {calYear}</span>
+                      <button className="clt-cal-arrow" onClick={nextMonth}>
+                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                          <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="clt-cal-grid">
+                      {WEEKDAYS.map(w => (
+                        <div key={w} className="clt-cal-wday">{w}</div>
+                      ))}
+                      {calDays.map((d, i) => {
+                        if (!d) return <div key={`e-${i}`} className="clt-cal-day empty" />;
+                        const disabled = isDisabled(d);
+                        const selected = toDateStr(d) === selectedDate;
+                        const isToday  = toDateStr(d) === getLocalDateStr();
+                        return (
+                          <button
+                            key={d}
+                            disabled={disabled}
+                            onClick={() => selectDay(d)}
+                            className={['clt-cal-day', disabled ? 'disabled' : '', selected ? 'selected' : '', isToday ? 'today' : ''].filter(Boolean).join(' ')}
+                          >
+                            {d}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="clt-times">

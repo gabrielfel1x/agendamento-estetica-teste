@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import {
-  getAppointmentsByDay, getOccupancyByMonth,
+  getAppointmentsByDay, getOccupancyByMonth, getConflictsByMonth,
   updateAppointmentStatus, updateAppointment,
   AdminAppointment,
 } from '@/lib/admin-data';
@@ -114,6 +114,8 @@ export default function AgendaPage() {
   const [reschedBookedTimes,  setReschedBookedTimes]  = useState<Set<string>>(new Set());
   const [reschedLoadingSlots, setReschedLoadingSlots] = useState(false);
   const [reschedSaving,       setReschedSaving]       = useState(false);
+  const [reschedCalYear,      setReschedCalYear]       = useState(TODAY.getFullYear());
+  const [reschedCalMonth,     setReschedCalMonth]      = useState(TODAY.getMonth());
 
   // Edit state
   const [editProcIdx, setEditProcIdx] = useState(0);
@@ -127,6 +129,7 @@ export default function AgendaPage() {
 
   const [settings,  setSettings]          = useState<ClinicSettings>(DEFAULT_SETTINGS);
   const [occupancy, setOccupancy]         = useState<Record<string, number>>({});
+  const [conflictDays, setConflictDays]   = useState<Set<string>>(new Set());
   const [loadingOccupancy, setLoadingOcc] = useState(true);
   const [dayApts, setDayApts]             = useState<AdminAppointment[]>([]);
   const [loadingDay, setLoadingDay]       = useState(true);
@@ -222,10 +225,37 @@ export default function AgendaPage() {
 
   function openReschedule() {
     if (!detailApt) return;
+    const [y, m] = detailApt.date.split('-').map(Number);
+    setReschedCalYear(y);
+    setReschedCalMonth(m - 1);
     setReschedDate(detailApt.date);
     setReschedTime(detailApt.time);
     setDetailError('');
     setDetailMode('reschedule');
+  }
+
+  function reschedToDateStr(d: number) {
+    return `${reschedCalYear}-${String(reschedCalMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+
+  function reschedIsDayDisabled(d: number) {
+    const ds  = reschedToDateStr(d);
+    const dow = new Date(`${ds}T12:00:00`).getDay();
+    if (ds < getLocalDateStr()) return true;
+    if (!settings.active_weekdays.includes(dow)) return true;
+    if (settings.blocked_dates.includes(ds)) return true;
+    return false;
+  }
+
+  function reschedPrevMonth() {
+    if (!reschedCanGoPrev) return;
+    if (reschedCalMonth === 0) { setReschedCalYear(y => y - 1); setReschedCalMonth(11); }
+    else setReschedCalMonth(m => m - 1);
+  }
+
+  function reschedNextMonth() {
+    if (reschedCalMonth === 11) { setReschedCalYear(y => y + 1); setReschedCalMonth(0); }
+    else setReschedCalMonth(m => m + 1);
   }
 
   function openEdit() {
@@ -257,6 +287,24 @@ export default function AgendaPage() {
     });
   }, [refreshKey]);
 
+  const allTimes = useMemo(
+    () => generateTimes(settings.start_hour, settings.end_hour, settings.slot_interval),
+    [settings]
+  );
+
+  const allTimesSet = useMemo(() => new Set(allTimes), [allTimes]);
+
+  useEffect(() => {
+    if (!settings || settings === DEFAULT_SETTINGS) return;
+    getConflictsByMonth(
+      YEAR, MONTH,
+      allTimesSet,
+      settings.blocked_dates,
+      settings.active_weekdays,
+      staffClient
+    ).then(setConflictDays);
+  }, [refreshKey, allTimesSet, settings]);
+
   useEffect(() => {
     const dateStr = padDate(YEAR, MONTH, selectedDay);
     setLoadingDay(true);
@@ -268,13 +316,6 @@ export default function AgendaPage() {
 
   const days = buildMonthDays(YEAR, MONTH);
   const selectedDateStr = padDate(YEAR, MONTH, selectedDay);
-
-  const allTimes = useMemo(
-    () => generateTimes(settings.start_hour, settings.end_hour, settings.slot_interval),
-    [settings]
-  );
-
-  const allTimesSet = useMemo(() => new Set(allTimes), [allTimes]);
 
   const aptsByTime: Record<string, AdminAppointment> = {};
   for (const a of dayApts) aptsByTime[a.time] = a;
@@ -303,6 +344,14 @@ export default function AgendaPage() {
       return true;
     });
   }, [allTimes, reschedBookedTimes, reschedDate]);
+
+  const reschedCalDays = useMemo(
+    () => buildMonthDays(reschedCalYear, reschedCalMonth + 1),
+    [reschedCalYear, reschedCalMonth]
+  );
+  const reschedCanGoPrev =
+    reschedCalYear > TODAY.getFullYear() ||
+    (reschedCalYear === TODAY.getFullYear() && reschedCalMonth > TODAY.getMonth());
 
   return (
     <div className="admin-section agenda-page">
@@ -335,10 +384,11 @@ export default function AgendaPage() {
               const isToday = dateStr === TODAY_STR;
               const isSel   = d === selectedDay;
               const isPast  = dateStr < TODAY_STR;
+              const hasConflict = conflictDays.has(dateStr);
               return (
                 <button
                   key={d}
-                  className={['admin-cal-day', level, isToday ? 'today' : '', isSel ? 'selected' : '', isPast ? 'past' : ''].filter(Boolean).join(' ')}
+                  className={['admin-cal-day', level, isToday ? 'today' : '', isSel ? 'selected' : '', isPast ? 'past' : '', hasConflict ? 'conflict' : ''].filter(Boolean).join(' ')}
                   onClick={() => setSelectedDay(d)}
                 >
                   <span className="admin-cal-day-n">{d}</span>
@@ -349,6 +399,7 @@ export default function AgendaPage() {
                       ))}
                     </span>
                   )}
+                  {hasConflict && <span className="admin-cal-conflict-dot" title="Agendamento fora do horário" />}
                 </button>
               );
             })}
@@ -357,6 +408,7 @@ export default function AgendaPage() {
             <span className="admin-cal-legend-item"><span className="admin-cal-legend-dot low" /> 1 ag.</span>
             <span className="admin-cal-legend-item"><span className="admin-cal-legend-dot medium" /> 2 ag.</span>
             <span className="admin-cal-legend-item"><span className="admin-cal-legend-dot high" /> 3+ ag.</span>
+            <span className="admin-cal-legend-item"><span className="admin-cal-conflict-dot" style={{position:'static',transform:'none',marginRight:2}} /> fora do horário</span>
           </div>
         </div>
 
@@ -588,16 +640,44 @@ export default function AgendaPage() {
                 <div className="agenda-reschedule-form">
                   <div className="agenda-reschedule-date-row">
                     <label className="na-label">Nova data</label>
-                    <input
-                      type="date"
-                      className={`na-input${reschedDate && isDateBlocked(reschedDate, settings) ? ' na-input-error' : ''}`}
-                      min={getLocalDateStr()}
-                      value={reschedDate}
-                      onChange={e => { setReschedDate(e.target.value); setReschedTime(''); setDetailError(''); }}
-                    />
-                    {reschedDate && isDateBlocked(reschedDate, settings) && (
-                      <span className="na-field-error">Esta data está bloqueada ou é um dia sem atendimento.</span>
-                    )}
+                    <div className="clt-cal na-mini-cal">
+                      <div className="clt-cal-nav-row">
+                        <button type="button" className="clt-cal-arrow" onClick={reschedPrevMonth} disabled={!reschedCanGoPrev}>
+                          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                            <path d="M15 18l-6-6 6-6"/>
+                          </svg>
+                        </button>
+                        <span className="clt-cal-month-label">{MONTH_NAMES[reschedCalMonth]} {reschedCalYear}</span>
+                        <button type="button" className="clt-cal-arrow" onClick={reschedNextMonth}>
+                          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                            <path d="M9 18l6-6-6-6"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="clt-cal-grid">
+                        {WEEKDAY_HEADERS.map(w => (
+                          <div key={w} className="clt-cal-wday">{w}</div>
+                        ))}
+                        {reschedCalDays.map((d, i) => {
+                          if (!d) return <div key={`e-${i}`} className="clt-cal-day empty" />;
+                          const disabled = reschedIsDayDisabled(d);
+                          const ds       = reschedToDateStr(d);
+                          const selected = ds === reschedDate;
+                          const isToday  = ds === getLocalDateStr();
+                          return (
+                            <button
+                              type="button"
+                              key={d}
+                              disabled={disabled}
+                              onClick={() => { setReschedDate(ds); setReschedTime(''); setDetailError(''); }}
+                              className={['clt-cal-day', disabled ? 'disabled' : '', selected ? 'selected' : '', isToday ? 'today' : ''].filter(Boolean).join(' ')}
+                            >
+                              {d}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   {reschedDate && (

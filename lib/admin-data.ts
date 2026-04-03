@@ -64,6 +64,43 @@ export async function getOccupancyByMonth(year: number, month: number, client?: 
   return map
 }
 
+export async function getConflictsByMonth(
+  year: number,
+  month: number,
+  validTimes: Set<string>,
+  blockedDates: string[],
+  activeWeekdays: number[],
+  client?: SupabaseClient
+): Promise<Set<string>> {
+  const supabase = client ?? createClient()
+  const from    = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const to      = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabase
+    .from('appointments')
+    .select('date, time')
+    .gte('date', from)
+    .lte('date', to)
+    .neq('status', 'cancelado') as any
+  if (error || !data) return new Set()
+  const conflicts = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const row of data as any[]) {
+    const ds  = String(row.date).slice(0, 10)
+    const t   = String(row.time).substring(0, 5)
+    const dow = new Date(`${ds}T12:00:00`).getDay()
+    if (
+      !validTimes.has(t) ||
+      blockedDates.includes(ds) ||
+      !activeWeekdays.includes(dow)
+    ) {
+      conflicts.add(ds)
+    }
+  }
+  return conflicts
+}
+
 export async function getAllAppointments(client?: SupabaseClient): Promise<AdminAppointment[]> {
   const supabase = client ?? createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
