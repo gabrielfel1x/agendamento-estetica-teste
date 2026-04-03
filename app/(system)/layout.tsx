@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/lib/admin-auth-context';
 import SystemSidebar from '@/components/system/SystemSidebar';
+import AdminSkeleton from '@/components/system/AdminSkeleton';
 
 export default function SystemLayout({ children }: { children: React.ReactNode }) {
   const { user, loaded } = useAdminAuth();
@@ -15,13 +16,9 @@ export default function SystemLayout({ children }: { children: React.ReactNode }
     }
   }, [loaded, user, router]);
 
-  // Aguarda sessão ou redireciona — nunca retorna null (causaria tela branca)
+  // Enquanto verifica sessão, mostra skeleton do layout completo
   if (!loaded || !user) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--ivory)' }}>
-        <span className="login-spinner" />
-      </div>
-    );
+    return <AdminSkeleton />;
   }
 
   return (

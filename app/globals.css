@@ -1141,6 +1141,29 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 .agenda-slots.loading { opacity:.45; pointer-events:none; }
 .agenda-slot-skeleton { height:52px; border-bottom:1px solid var(--border); background:linear-gradient(90deg,var(--border) 25%,var(--ivory-alt) 50%,var(--border) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.4s infinite; border-radius:0; }
 @keyframes skeleton-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Admin skeleton (loading state) ── */
+.sk-block { background:linear-gradient(90deg,rgba(255,255,255,.08) 25%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.08) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.6s infinite; }
+.sk-block-light { background:linear-gradient(90deg,rgba(255,255,255,.12) 25%,rgba(255,255,255,.22) 50%,rgba(255,255,255,.12) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.6s infinite; }
+.sk-block-ivory { background:linear-gradient(90deg,var(--border) 25%,var(--ivory-alt) 50%,var(--border) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.6s infinite; }
+.sk-sidebar { pointer-events:none; }
+.sk-topbar { pointer-events:none; background:var(--forest); display:flex; align-items:center; justify-content:space-between; }
+.sk-nav-item { display:flex; align-items:center; gap:12px; padding:13px 16px; border-radius:6px; }
+.sk-page { padding:32px 40px; max-width:1400px; }
+.sk-page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
+.sk-content-grid { display:grid; grid-template-columns:340px 1fr; gap:24px; }
+.sk-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:24px; }
+@media(max-width:1024px) {
+  .sk-content-grid { grid-template-columns:1fr; }
+  .sk-page { padding:24px 20px; }
+}
+@media(max-width:768px) {
+  .sk-sidebar { display:none; }
+  .sk-topbar { display:flex; }
+  .sk-page { padding:20px 16px; }
+  .sk-page-header { flex-direction:column; align-items:flex-start; gap:12px; }
+}
+@media(min-width:769px) { .sk-topbar { display:none !important; } }
 .admin-cal-grid.loading { opacity:.5; pointer-events:none; }
 .admin-loading { padding:48px 24px; text-align:center; font-size:.82rem; font-weight:300; color:var(--text-muted); letter-spacing:.04em; }
 .agenda-slot { display:flex; align-items:center; gap:14px; padding:10px 20px; border-bottom:1px solid var(--border); transition:background .15s; min-height:52px; }
@@ -1155,9 +1178,9 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 .agenda-slot-proc { font-size:.74rem; font-weight:300; color:var(--text-muted); margin-top:1px; }
 .agenda-slot-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
 .agenda-slot-price { font-family:var(--font-d); font-size:.95rem; font-weight:300; color:var(--emerald); }
-.agenda-slot-empty-btn { display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:300; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); cursor:pointer; background:transparent; padding:4px 0; opacity:0; transition:opacity .2s; }
+.agenda-slot-empty-btn { display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:300; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); cursor:pointer; background:transparent; padding:4px 0; opacity:.45; transition:opacity .2s; }
 .agenda-slot:hover .agenda-slot-empty-btn { opacity:1; }
-.agenda-slot-past-label { font-size:.68rem; font-weight:300; letter-spacing:.06em; text-transform:uppercase; color:var(--border); }
+.agenda-slot-past-label { font-size:.68rem; font-weight:300; letter-spacing:.06em; text-transform:uppercase; color:rgba(10,10,10,0.3); }
 .agenda-slot-past-label.blocked-label { color:#e8c5c5; }
 .agenda-slot.blocked { opacity:.5; }
 /* slot clickable */
@@ -1199,10 +1222,10 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 .agenda-detail-close-btn:hover { background:var(--text-muted); color:var(--white); }
 
 /* ── Orphan slots (fora do horário atual) ── */
-.agenda-slot.orphan { opacity:.55; background:repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(0,0,0,.03) 4px,rgba(0,0,0,.03) 8px); }
+.agenda-slot.orphan { opacity:.78; background:repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(0,0,0,.025) 4px,rgba(0,0,0,.025) 8px); }
 .agenda-slot.orphan .agenda-slot-apt.clickable:hover { background:rgba(0,0,0,.04); }
-.agenda-slot-conflict-badge { display:inline-flex; align-items:center; font-size:.58rem; font-weight:500; letter-spacing:.07em; text-transform:uppercase; background:#fff3cd; color:#856404; border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
-.agenda-orphan-divider { display:flex; align-items:center; gap:7px; font-size:.67rem; font-weight:400; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); padding:14px 0 6px; opacity:.7; }
+.agenda-slot-conflict-badge { display:inline-flex; align-items:center; font-size:.58rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; background:#fff3cd; color:#7a5900; border-radius:4px; padding:2px 6px; margin-left:6px; vertical-align:middle; }
+.agenda-orphan-divider { display:flex; align-items:center; gap:7px; font-size:.67rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--text-mid); padding:14px 0 6px 20px; opacity:.85; }
 .agenda-orphan-divider svg { flex-shrink:0; color:#b8860b; }
 
 /* ── Detail: conflict warning ── */

@@ -84,7 +84,7 @@ function buildMonthDays(year: number, month: number): (number | null)[] {
 
 function waLink(phone: string, patient: string) {
   const clean = phone.replace(/\D/g, '');
-  const msg = encodeURIComponent(`Olá ${patient}! Entrando em contato da Lumière Estética.`);
+  const msg = encodeURIComponent(`Olá ${patient}! Entrando em contato da Depill Plus.`);
   return `https://wa.me/55${clean}?text=${msg}`;
 }
 
