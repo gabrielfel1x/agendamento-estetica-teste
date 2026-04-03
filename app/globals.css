@@ -1700,6 +1700,10 @@ footer { background:var(--forest); color:var(--white); padding:80px 0 40px; }
 .clt-cal-day.disabled { color:var(--border-mid); cursor:default; pointer-events:none; }
 .clt-cal-day.empty { pointer-events:none; }
 
+/* Mini calendar inside NovoAgendamentoModal */
+.na-mini-cal { border:none; padding:0; }
+.na-mini-cal .clt-cal-day { aspect-ratio:1.2; }
+
 /* Time slots */
 .clt-times { display:flex; flex-direction:column; gap:12px; }
 .clt-times-title { font-size:.7rem; font-weight:400; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); }

@@ -12,9 +12,15 @@ interface Props {
   defaultDate?: string;
   defaultTime?: string;
   onSaved?: () => void;
+  clinicSettings?: ClinicSettings;
 }
 
 const PAGAMENTOS = ['Pix', 'Cartão de crédito', 'Cartão de débito', 'Dinheiro', 'Outro'];
+const WEEKDAY_HEADERS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const MONTHS_PT = [
+  'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
+];
 
 function getLocalDateStr() {
   const n = new Date();
@@ -48,24 +54,42 @@ function priceToNum(v: string) {
   return parseInt(v.replace(/\D/g, ''), 10) || 0;
 }
 
+function pad(n: number) { return String(n).padStart(2, '0'); }
+
+function buildCalendar(year: number, month: number): (number | null)[] {
+  const firstDay    = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days: (number | null)[] = Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) days.push(d);
+  while (days.length % 7 !== 0) days.push(null);
+  return days;
+}
+
 const EMPTY = { name: '', phone: '', procedure: 0, payment: 'Pix', value: '', obs: '', date: '', time: '' };
 
-export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, defaultTime, onSaved }: Props) {
+export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, defaultTime, onSaved, clinicSettings }: Props) {
   // fromSlot = aberto clicando num horário específico na agenda
   const fromSlot = !!(defaultDate && defaultTime);
 
-  const [settings,  setSettings]  = useState<ClinicSettings>(DEFAULT_SETTINGS);
+  const [settings,  setSettings]  = useState<ClinicSettings>(clinicSettings ?? DEFAULT_SETTINGS);
   const [form, setForm]     = useState({ ...EMPTY });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const staffClient = useMemo(() => createStaffClient(), []);
 
+  // Calendar state
+  const now = new Date();
+  const [calYear,  setCalYear]  = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+
   useEffect(() => {
+    if (clinicSettings) { setSettings(clinicSettings); return; }
     getClinicSettings(staffClient).then(setSettings);
-  }, []);
+  }, [clinicSettings]);
 
   useEffect(() => {
     if (isOpen) {
+      const n = new Date();
       setForm({
         ...EMPTY,
         procedure: 0,
@@ -74,6 +98,15 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
         time: defaultTime || '',
       });
       setErrors({});
+      // Reset calendar to current month (or defaultDate month)
+      if (defaultDate) {
+        const [y, m] = defaultDate.split('-').map(Number);
+        setCalYear(y);
+        setCalMonth(m - 1);
+      } else {
+        setCalYear(n.getFullYear());
+        setCalMonth(n.getMonth());
+      }
     }
   }, [isOpen, defaultDate, defaultTime]);
 
@@ -98,6 +131,51 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
   );
   const availableTimes = allTimes.filter(t => !isTimePast(form.date, t));
 
+  // Calendar helpers
+  const calDays = useMemo(() => buildCalendar(calYear, calMonth), [calYear, calMonth]);
+  const canGoPrev = calYear > now.getFullYear() || (calYear === now.getFullYear() && calMonth > now.getMonth());
+
+  function toDateStr(d: number) {
+    return `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
+  }
+
+  function isDayDisabled(d: number) {
+    const ds  = toDateStr(d);
+    const dow = new Date(`${ds}T12:00:00`).getDay();
+    const todayStr = getLocalDateStr();
+    if (ds < todayStr) return true;
+    if (!settings.active_weekdays.includes(dow)) return true;
+    if (settings.blocked_dates.includes(ds)) return true;
+    return false;
+  }
+
+  function prevMonth() {
+    if (!canGoPrev) return;
+    if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); }
+    else setCalMonth(m => m - 1);
+  }
+
+  function nextMonth() {
+    if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); }
+    else setCalMonth(m => m + 1);
+  }
+
+  function selectDay(d: number) {
+    if (isDayDisabled(d)) return;
+    const ds = toDateStr(d);
+    set('date', ds);
+    set('time', '');
+  }
+
+  // Check if selected date is blocked (for validation)
+  function isSelectedDateBlocked() {
+    if (!form.date) return false;
+    const dow = new Date(`${form.date}T12:00:00`).getDay();
+    if (!settings.active_weekdays.includes(dow)) return true;
+    if (settings.blocked_dates.includes(form.date)) return true;
+    return false;
+  }
+
   function validate() {
     const errs: Record<string, string> = {};
     if (!form.name.trim())                errs.name = 'Informe o nome do cliente.';
@@ -108,6 +186,7 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
     }
     if (!form.date) errs.date = 'Selecione uma data.';
     else if (form.date < getLocalDateStr()) errs.date = 'Não é possível agendar em data passada.';
+    else if (isSelectedDateBlocked()) errs.date = 'Esta data está bloqueada.';
     if (!form.time) errs.time = 'Selecione um horário.';
     else if (isTimePast(form.date, form.time)) errs.time = 'Horário já passou.';
     return errs;
@@ -198,21 +277,58 @@ export default function NovoAgendamentoModal({ isOpen, onClose, defaultDate, def
             </div>
 
             {/* Data */}
-            <div className="na-field">
+            <div className="na-field na-field-full">
               <label className="na-label">Data *</label>
-              <input
-                className={`na-input${errors.date ? ' na-input-error' : ''}${fromSlot ? ' na-input-locked' : ''}`}
-                type="date"
-                min={getLocalDateStr()}
-                value={form.date}
-                onChange={e => { set('date', e.target.value); set('time', ''); }}
-                disabled={fromSlot}
-              />
+              {fromSlot ? (
+                <input
+                  className="na-input na-input-locked"
+                  value={form.date}
+                  disabled
+                />
+              ) : (
+                <div className="clt-cal na-mini-cal">
+                  <div className="clt-cal-nav-row">
+                    <button type="button" className="clt-cal-arrow" onClick={prevMonth} disabled={!canGoPrev}>
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <path d="M15 18l-6-6 6-6"/>
+                      </svg>
+                    </button>
+                    <span className="clt-cal-month-label">{MONTHS_PT[calMonth]} {calYear}</span>
+                    <button type="button" className="clt-cal-arrow" onClick={nextMonth}>
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <path d="M9 18l6-6-6-6"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="clt-cal-grid">
+                    {WEEKDAY_HEADERS.map(w => (
+                      <div key={w} className="clt-cal-wday">{w}</div>
+                    ))}
+                    {calDays.map((d, i) => {
+                      if (!d) return <div key={`e-${i}`} className="clt-cal-day empty" />;
+                      const disabled = isDayDisabled(d);
+                      const selected = toDateStr(d) === form.date;
+                      const isToday  = toDateStr(d) === getLocalDateStr();
+                      return (
+                        <button
+                          type="button"
+                          key={d}
+                          disabled={disabled}
+                          onClick={() => selectDay(d)}
+                          className={['clt-cal-day', disabled ? 'disabled' : '', selected ? 'selected' : '', isToday ? 'today' : ''].filter(Boolean).join(' ')}
+                        >
+                          {d}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {errors.date && <span className="na-field-error">{errors.date}</span>}
             </div>
 
             {/* Horário */}
-            <div className="na-field">
+            <div className="na-field na-field-full">
               <label className="na-label">Horário *</label>
               {fromSlot ? (
                 <input

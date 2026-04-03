@@ -435,6 +435,7 @@ export default function AgendaPage() {
         defaultDate={selectedDateStr}
         defaultTime={modalTime}
         onSaved={refresh}
+        clinicSettings={settings}
       />
 
       {/* Appointment detail modal */}

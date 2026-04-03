@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { PROCEDURE_CATALOG } from '@/lib/constants';
 import { getAppointmentsByDay, addAppointment } from '@/lib/admin-data';
 import {
-  getClinicSettings,
+  fetchClinicSettingsPublic,
   generateTimes,
   DEFAULT_SETTINGS,
   type ClinicSettings,
@@ -63,9 +63,9 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   const [error,        setError]        = useState('');
   const [saving,       setSaving]       = useState(false);
 
-  // Carrega configurações da clínica
+  // Carrega configurações da clínica (via API pública para funcionar sem sessão de staff)
   useEffect(() => {
-    getClinicSettings().then(setSettings);
+    fetchClinicSettingsPublic().then(setSettings);
   }, []);
 
   useEffect(() => {

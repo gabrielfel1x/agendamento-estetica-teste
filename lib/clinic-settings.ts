@@ -68,6 +68,27 @@ export async function getClinicSettings(client?: SupabaseClient): Promise<Clinic
   return _cache
 }
 
+/** Busca settings via API pública (não depende de RLS/cookie de staff) */
+export async function fetchClinicSettingsPublic(): Promise<ClinicSettings> {
+  if (_cache) return _cache
+  try {
+    const res = await fetch('/api/clinic-settings')
+    if (!res.ok) return { ...DEFAULT_SETTINGS }
+    const data = await res.json()
+    const settings: ClinicSettings = {
+      active_weekdays: data.active_weekdays ?? DEFAULT_SETTINGS.active_weekdays,
+      start_hour:      data.start_hour      ?? DEFAULT_SETTINGS.start_hour,
+      end_hour:        data.end_hour        ?? DEFAULT_SETTINGS.end_hour,
+      slot_interval:   data.slot_interval   ?? DEFAULT_SETTINGS.slot_interval,
+      blocked_dates:   (data.blocked_dates  ?? []).map((d: string) => String(d).slice(0, 10)),
+    }
+    _cache = settings
+    return settings
+  } catch {
+    return { ...DEFAULT_SETTINGS }
+  }
+}
+
 export async function saveClinicSettings(
   settings: ClinicSettings,
   client?: SupabaseClient
