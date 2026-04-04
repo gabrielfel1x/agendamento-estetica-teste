@@ -4,18 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-
-const PACKAGE_ITEMS = [
-  '6 aplicações de enzimas',
-  '4 aplicações de BCAA',
-  '3 Mantas Térmicas',
-  '3 Drenomodeladoras',
-];
+import { createClient } from '@/lib/supabase/client';
+import { getPlans, type PlanData } from '@/lib/plans-data';
 
 export default function AssinaturaPage() {
   const { user, updateUser } = useAuth();
   const router = useRouter();
 
+  const [plan, setPlan]             = useState<PlanData | null>(null);
   const [step, setStep]             = useState<'confirm' | 'payment'>('confirm');
   const [payOption, setPayOption]   = useState<'parcelado' | 'avista'>('parcelado');
   const [cardNumber, setCardNumber] = useState('');
@@ -29,6 +25,13 @@ export default function AssinaturaPage() {
     if (!user) router.replace('/cadastro?ref=pacote');
     else if (user.role === 'cliente' && user.plan && user.planStatus === 'ativo') router.replace('/minha-conta');
   }, [user, router]);
+
+  useEffect(() => {
+    getPlans(createClient()).then(plans => {
+      const active = plans.find(p => p.active) ?? plans[0] ?? null;
+      setPlan(active);
+    });
+  }, []);
 
   function formatCardNumber(val: string) {
     const nums = val.replace(/\D/g, '').slice(0, 16);
@@ -51,16 +54,20 @@ export default function AssinaturaPage() {
 
     setLoading(true);
     setTimeout(() => {
-      const today = new Date();
-      const next  = new Date(today);
+      const today    = new Date();
+      const next     = new Date(today);
       next.setMonth(next.getMonth() + 1);
+      const priceNum = plan?.priceNum ?? 600;
+      const parcela  = `R$ ${Math.ceil(priceNum / 12)},99`;
 
       updateUser({
-        plan: 'pacote',
-        planStatus: 'ativo',
+        plan:             plan?.slug ?? 'pacote',
+        planStatus:       'ativo',
         subscriptionDate: today.toISOString().split('T')[0],
-        nextBillingDate: next.toISOString().split('T')[0],
-        monthlyValue: payOption === 'avista' ? 'R$ 599,90 (à vista)' : '12x de R$ 55,99',
+        nextBillingDate:  next.toISOString().split('T')[0],
+        monthlyValue:     payOption === 'avista'
+          ? `${plan?.price ?? 'R$ 599,90'} (à vista)`
+          : `12x de ${parcela}`,
       });
 
       router.push('/minha-conta');
@@ -68,6 +75,15 @@ export default function AssinaturaPage() {
   }
 
   if (!user) return null;
+
+  const priceNum  = plan?.priceNum ?? 600;
+  const parcela   = `R$ ${Math.ceil(priceNum / 12)},99`;
+  const totalParc = `R$ ${(Math.ceil(priceNum / 12) * 12).toLocaleString('pt-BR')},88`;
+  const economia  = `R$ ${((Math.ceil(priceNum / 12) * 12) - priceNum).toFixed(2).replace('.', ',')}`;
+  const features  = plan?.features ?? [];
+  const planName  = plan?.name ?? 'Emagrecimento & Hipertrofia';
+  const planDesc  = plan?.description ?? '';
+  const planPrice = plan?.price ?? 'R$ 599,90';
 
   return (
     <div className="sub-layout">
@@ -129,15 +145,14 @@ export default function AssinaturaPage() {
               <div className="sub-pkg-info">
                 <p className="sub-pkg-label">Pacote especial</p>
                 <h1 className="sub-title">
-                  Emagrecimento &<br /><em>Hipertrofia</em>
+                  {planName.includes('&') ? (
+                    <>{planName.split('&')[0].trim()} &<br /><em>{planName.split('&')[1].trim()}</em></>
+                  ) : <em>{planName}</em>}
                 </h1>
-                <p className="sub-subtitle">
-                  Protocolo completo desenvolvido para resultados expressivos em
-                  emagrecimento e definição muscular.
-                </p>
+                {planDesc && <p className="sub-subtitle">{planDesc}</p>}
 
                 <ul className="sub-pkg-items">
-                  {PACKAGE_ITEMS.map(item => (
+                  {features.map(item => (
                     <li key={item}>
                       <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path d="M20 6L9 17l-5-5" />
@@ -157,10 +172,10 @@ export default function AssinaturaPage() {
                     onClick={() => setPayOption('parcelado')}
                   >
                     <div className="sub-pay-option-main">
-                      <span className="sub-pay-option-value">12x de R$ 55,99</span>
+                      <span className="sub-pay-option-value">12x de {parcela}</span>
                       <span className="sub-pay-option-badge">No cartão</span>
                     </div>
-                    <span className="sub-pay-option-total">Total: R$ 671,88</span>
+                    <span className="sub-pay-option-total">Total: {totalParc}</span>
                   </button>
 
                   <button
@@ -168,10 +183,10 @@ export default function AssinaturaPage() {
                     onClick={() => setPayOption('avista')}
                   >
                     <div className="sub-pay-option-main">
-                      <span className="sub-pay-option-value">R$ 599,90</span>
+                      <span className="sub-pay-option-value">{planPrice}</span>
                       <span className="sub-pay-option-badge best">Melhor preço</span>
                     </div>
-                    <span className="sub-pay-option-total">À vista · Economia de R$ 71,98</span>
+                    <span className="sub-pay-option-total">À vista · Economia de {economia}</span>
                   </button>
                 </div>
 
@@ -200,14 +215,14 @@ export default function AssinaturaPage() {
             <div className="sub-payment-wrap">
               <div className="sub-payment-summary">
                 <p className="sub-payment-summary-label">Resumo do pedido</p>
-                <h3 className="sub-payment-summary-name">Pacote Emagrecimento e Hipertrofia</h3>
+                <h3 className="sub-payment-summary-name">{planName}</h3>
                 <div className="sub-payment-summary-price">
                   <span className="sub-payment-summary-value">
-                    {payOption === 'avista' ? 'R$ 599,90' : '12x de R$ 55,99'}
+                    {payOption === 'avista' ? planPrice : `12x de ${parcela}`}
                   </span>
                 </div>
                 <ul className="sub-payment-summary-features">
-                  {PACKAGE_ITEMS.map(item => (
+                  {features.map(item => (
                     <li key={item}>
                       <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path d="M20 6L9 17l-5-5" />
@@ -225,7 +240,7 @@ export default function AssinaturaPage() {
                 <h2 className="sub-payment-title">Dados do cartão</h2>
                 <p className="sub-payment-sub">
                   {payOption === 'avista'
-                    ? 'Cobrança única de R$ 599,90.'
+                    ? `Cobrança única de ${planPrice}.`
                     : 'Primeira parcela cobrada agora. 11 parcelas seguintes mensalmente.'}
                 </p>
 
@@ -296,8 +311,8 @@ export default function AssinaturaPage() {
                     {loading ? (
                       <><span className="login-spinner" /> Processando...</>
                     ) : payOption === 'avista'
-                      ? 'Pagar R$ 599,90'
-                      : 'Pagar 1ª parcela de R$ 55,99'
+                      ? `Pagar ${planPrice}`
+                      : `Pagar 1ª parcela de ${parcela}`
                     }
                   </button>
                 </div>

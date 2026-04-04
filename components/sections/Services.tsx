@@ -1,67 +1,31 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { PROCEDURE_CATALOG } from '@/lib/constants';
 import { useAuth } from '@/lib/auth-context';
-
-const CATS = [
-  { id: 'todos',    label: 'Todos os serviços' },
-  { id: 'facial',   label: 'Facial'            },
-  { id: 'corporal', label: 'Corporal'           },
-  { id: 'laser',    label: 'Depilação a laser'  },
-  { id: 'especiais',label: 'Especiais'          },
-];
-
-const CAT_MAP: Record<string, string> = {
-  'Limpeza de pele':                       'facial',
-  'Drenagem facial':                       'facial',
-  'Revitalização facial':                  'facial',
-  'Rejuvenescimento facial':               'facial',
-  'Tratamento para flacidez':              'facial',
-  'Revitalização labial':                  'facial',
-  'Drenagem linfática':                    'corporal',
-  'Dreno modeladora':                      'corporal',
-  'Modeladora':                            'corporal',
-  'Detox corporal':                        'corporal',
-  'Massagem relaxante':                    'corporal',
-  'Massagem relaxante c/ pedras quentes':  'corporal',
-  'Pós operatório':                        'corporal',
-  'Ozônioterapia':                         'corporal',
-  'Ventosa terapia':                       'corporal',
-  'Liberação':                             'corporal',
-  'Tratamento para celulite':              'corporal',
-  'Tratamento para gordura localizada':    'corporal',
-  'Depilação a laser — Perna completa':    'laser',
-  'Depilação a laser — Meia perna':        'laser',
-  'Depilação a laser — Axila':             'laser',
-  'Depilação a laser — Peitoral e tronco': 'laser',
-  'Depilação a laser — Contorno simples':  'laser',
-  'Depilação a laser — Contorno completo': 'laser',
-  'Depilação a laser — Barba':             'laser',
-  'Terapia capilar':                       'especiais',
-  'Spa dos pés':                           'especiais',
-  'Pacote Emagrecimento e Hipertrofia':    'especiais',
-};
-
-const CAT_LABELS: Record<string, string> = {
-  facial:    'Facial',
-  corporal:  'Corporal',
-  laser:     'Laser',
-  especiais: 'Especial',
-};
+import { createClient } from '@/lib/supabase/client';
+import { getServicos, getCategories, type Servico, type ServiceCategory } from '@/lib/services-data';
 
 export default function Services() {
   const { user } = useAuth();
-  const [active, setActive] = useState('todos');
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [servicos,   setServicos]   = useState<Servico[]>([]);
+  const [active,     setActive]     = useState('todos');
   const trackRef = useRef<HTMLDivElement>(null);
 
-  // Destino do botão "Agendar" dependendo do estado de autenticação
+  useEffect(() => {
+    const client = createClient();
+    Promise.all([getCategories(client), getServicos(client)]).then(([cats, srvs]) => {
+      setCategories(cats.filter(c => c.active));
+      setServicos(srvs.filter(s => s.active));
+    });
+  }, []);
+
   const agendarHref = user ? '/minha-conta' : '/login';
 
-  const filtered = PROCEDURE_CATALOG.filter(s =>
-    active === 'todos' || CAT_MAP[s.name] === active
-  );
+  const filtered: Servico[] = active === 'todos'
+    ? servicos
+    : servicos.filter(s => s.categoryId === active);
 
   function scroll(dir: 'left' | 'right') {
     trackRef.current?.scrollBy({ left: dir === 'right' ? 300 : -300, behavior: 'smooth' });
@@ -83,14 +47,21 @@ export default function Services() {
           </p>
 
           <nav className="svc-tabs" aria-label="Filtrar serviços">
-            {CATS.map(c => (
+            <button
+              className={`svc-tab${active === 'todos' ? ' active' : ''}`}
+              onClick={() => setActive('todos')}
+            >
+              <span className="svc-tab-dot" />
+              Todos os serviços
+            </button>
+            {categories.map(c => (
               <button
                 key={c.id}
                 className={`svc-tab${active === c.id ? ' active' : ''}`}
                 onClick={() => setActive(c.id)}
               >
                 <span className="svc-tab-dot" />
-                {c.label}
+                {c.name}
               </button>
             ))}
           </nav>
@@ -113,31 +84,28 @@ export default function Services() {
         {/* ── Right: carousel ─────────────────────────── */}
         <div className="svc-track-wrap">
           <div className="svc-track" ref={trackRef}>
-            {filtered.map((svc, i) => {
-              const cat = CAT_MAP[svc.name];
-              const catLabel = CAT_LABELS[cat] ?? 'Especial';
-              const isPackage = svc.name.toLowerCase().includes('pacote');
-              return (
-                <div className={`svc-card${isPackage ? ' svc-card--pkg' : ''}`} key={svc.name}>
-                  <div className="svc-card-header">
-                    <span className="svc-card-num">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="svc-card-tag">{catLabel}</span>
-                  </div>
-
-                  <h3 className="svc-card-name">{svc.name}</h3>
-
-                  <div className="svc-card-footer">
-                    <p className="svc-card-price">{svc.price}</p>
-                    <Link href={agendarHref} className="svc-card-btn">
-                      Agendar
-                      <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  </div>
+            {filtered.map((svc, i) => (
+              <div className="svc-card" key={svc.id}>
+                <div className="svc-card-header">
+                  <span className="svc-card-num">{String(i + 1).padStart(2, '0')}</span>
+                  {svc.categoryName && (
+                    <span className="svc-card-tag">{svc.categoryName}</span>
+                  )}
                 </div>
-              );
-            })}
+
+                <h3 className="svc-card-name">{svc.name}</h3>
+
+                <div className="svc-card-footer">
+                  <p className="svc-card-price">{svc.price}</p>
+                  <Link href={agendarHref} className="svc-card-btn">
+                    Agendar
+                    <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Fade edge */}

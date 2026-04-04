@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import AgendarSessaoModal from '@/components/system/AgendarSessaoModal';
 import { getClientAppointments, AdminAppointment } from '@/lib/admin-data';
+import { createClient } from '@/lib/supabase/client';
+import { getPlans, type PlanData } from '@/lib/plans-data';
 
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -14,13 +16,6 @@ function formatDate(dateStr?: string) {
   const d = new Date(dateStr + 'T12:00:00');
   return `${d.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`;
 }
-
-const PACKAGE_ITEMS = [
-  '6 aplicações de enzimas',
-  '4 aplicações de BCAA',
-  '3 Mantas Térmicas',
-  '3 Drenomodeladoras',
-];
 
 const MONTHS_APT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const WEEKDAYS_APT = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
@@ -43,6 +38,7 @@ function isUpcoming(d: string) {
 export default function MinhaContaPage() {
   const { user, loaded, updateUser, logout } = useAuth();
   const router = useRouter();
+  const [planData, setPlanData]           = useState<PlanData | null>(null);
   const [showCancel, setShowCancel]       = useState(false);
   const [showAgenda, setShowAgenda]       = useState(false);
   const [agendaSaved, setAgendaSaved]     = useState(false);
@@ -54,6 +50,15 @@ export default function MinhaContaPage() {
   useEffect(() => {
     if (loaded && !user) router.replace('/login');
   }, [loaded, user, router]);
+
+  // Carrega dados do plano do Supabase
+  useEffect(() => {
+    if (!user?.plan) return;
+    getPlans(createClient()).then(plans => {
+      const match = plans.find(p => p.slug === user.plan) ?? plans.find(p => p.active) ?? null;
+      setPlanData(match);
+    });
+  }, [user?.plan]);
 
   const [aptsKey, setAptsKey] = useState(0);
   const reloadApts = () => setAptsKey(k => k + 1);
@@ -107,9 +112,11 @@ export default function MinhaContaPage() {
     );
   }
 
-  const hasPacote  = !!user.plan;
+  const hasPacote   = !!user.plan;
   const statusLabel = user.planStatus === 'ativo' ? 'Ativo' : user.planStatus === 'pendente' ? 'Pendente' : 'Cancelado';
   const statusClass = user.planStatus || 'ativo';
+  const planName    = planData?.name ?? 'Emagrecimento & Hipertrofia';
+  const planFeatures = planData?.features ?? [];
 
   return (
     <div className="cd-layout">
@@ -176,7 +183,7 @@ export default function MinhaContaPage() {
               <div className="cd-metrics">
                 <div className="cd-metric-card">
                   <p className="cd-metric-label">Pacote</p>
-                  <p className="cd-metric-value">Emagrecimento</p>
+                  <p className="cd-metric-value">{planData ? planName.split('&')[0].trim() : '—'}</p>
                   <span className={`cd-status-badge ${statusClass}`}>{statusLabel}</span>
                 </div>
                 <div className="cd-metric-card">
@@ -199,13 +206,13 @@ export default function MinhaContaPage() {
               <div className="cd-plan-card">
                 <div className="cd-plan-header">
                   <div>
-                    <h2 className="cd-plan-name">Pacote Emagrecimento e Hipertrofia</h2>
-                    <p className="cd-plan-desc">Protocolo completo para emagrecimento e definição muscular.</p>
+                    <h2 className="cd-plan-name">{planName}</h2>
+                    {planData?.description && <p className="cd-plan-desc">{planData.description}</p>}
                   </div>
                   <span className={`cd-status-badge lg ${statusClass}`}>{statusLabel}</span>
                 </div>
                 <div className="cd-plan-features">
-                  {PACKAGE_ITEMS.map(f => (
+                  {planFeatures.map(f => (
                     <div key={f} className="cd-plan-feature">
                       <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path d="M20 6L9 17l-5-5" />

@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { PROCEDURE_CATALOG } from '@/lib/constants';
 import { addAppointment } from '@/lib/admin-data';
 import { createClient } from '@/lib/supabase/client';
+import { getServicos, type Servico } from '@/lib/services-data';
 import {
   generateTimes,
   DEFAULT_SETTINGS,
@@ -52,10 +52,13 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   const { user } = useAuth();
 
   const now = new Date();
-  const [settings,     setSettings]     = useState<ClinicSettings>(DEFAULT_SETTINGS);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [step,         setStep]         = useState<'procedure' | 'datetime'>('procedure');
-  const [procIdx,      setProcIdx]      = useState(0);
+  const [catalog,       setCatalog]       = useState<Servico[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [procSearch,    setProcSearch]    = useState('');
+  const [settings,      setSettings]      = useState<ClinicSettings>(DEFAULT_SETTINGS);
+  const [settingsLoaded,setSettingsLoaded]= useState(false);
+  const [step,          setStep]          = useState<'procedure' | 'datetime'>('procedure');
+  const [procIdx,       setProcIdx]       = useState(0);
   const [calYear,      setCalYear]      = useState(now.getFullYear());
   const [calMonth,     setCalMonth]     = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState('');
@@ -64,6 +67,15 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error,        setError]        = useState('');
   const [saving,       setSaving]       = useState(false);
+
+  // Carrega serviços do Supabase
+  useEffect(() => {
+    if (!isOpen || catalogLoaded) return;
+    getServicos(createClient()).then(srvs => {
+      setCatalog(srvs.filter(s => s.active));
+      setCatalogLoaded(true);
+    });
+  }, [isOpen, catalogLoaded]);
 
   // Carrega configurações diretamente do Supabase usando a sessão do cliente autenticado
   // (não usa cache nem API route, que dependem de service role key)
@@ -99,6 +111,9 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
       const n = new Date();
       setStep('procedure');
       setProcIdx(0);
+      setProcSearch('');
+      // Recarrega catálogo ao abrir (caso tenha mudado)
+      setCatalogLoaded(false);
       setCalYear(n.getFullYear());
       setCalMonth(n.getMonth());
       setSelectedDate('');
@@ -126,7 +141,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
       .catch(() => setLoadingSlots(false));
   }, [selectedDate]);
 
-  const procedure  = PROCEDURE_CATALOG[procIdx];
+  const procedure  = catalog[procIdx];
   const allTimes   = useMemo(
     () => generateTimes(settings.start_hour, settings.end_hour, settings.slot_interval),
     [settings]
@@ -193,6 +208,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
       setSelectedTime('');
       return;
     }
+    if (!procedure) { setError('Selecione um procedimento.'); return; }
     setSaving(true);
     const result = await addAppointment({
       patient:   user!.name,
@@ -224,7 +240,7 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
             <p className="na-modal-sub">
               {step === 'procedure'
                 ? 'Selecione o tratamento desejado'
-                : `${procedure.name} · ${procedure.price}`}
+                : procedure ? `${procedure.name} · ${procedure.price}` : ''}
             </p>
           </div>
           <button className="na-close" onClick={onClose} aria-label="Fechar">
@@ -253,21 +269,64 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
         <div className="na-modal-body">
           {step === 'procedure' && (
             <div className="clt-proc-list">
-              {PROCEDURE_CATALOG.map((p, i) => (
-                <button
-                  key={p.name}
-                  className={`clt-proc-item${procIdx === i ? ' active' : ''}`}
-                  onClick={() => setProcIdx(i)}
-                >
-                  <span className="clt-proc-name">{p.name}</span>
-                  <span className="clt-proc-price">{p.price}</span>
-                  {procIdx === i && (
-                    <svg className="clt-proc-check" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <polyline points="20 6 9 17 4 12"/>
+              {!catalogLoaded ? (
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:120, color:'var(--text-muted)', fontSize:'.8rem', gap:8 }}>
+                  <span className="login-spinner" style={{ width:14, height:14 }} />
+                  Carregando serviços...
+                </div>
+              ) : (
+                <>
+                  <div className="clt-proc-search-wrap">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                     </svg>
-                  )}
-                </button>
-              ))}
+                    <input
+                      className="clt-proc-search"
+                      type="text"
+                      placeholder="Pesquisar serviço..."
+                      value={procSearch}
+                      onChange={e => setProcSearch(e.target.value)}
+                    />
+                    {procSearch && (
+                      <button className="clt-proc-search-clear" onClick={() => setProcSearch('')}>
+                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {(() => {
+                    const q = procSearch.toLowerCase().trim();
+                    const filtered = q ? catalog.filter(p => p.name.toLowerCase().includes(q) || (p.categoryName ?? '').toLowerCase().includes(q)) : catalog;
+                    if (filtered.length === 0) return (
+                      <p style={{ fontSize:'.82rem', color:'var(--text-muted)', textAlign:'center', padding:'24px 0' }}>
+                        Nenhum serviço encontrado para &quot;{procSearch}&quot;.
+                      </p>
+                    );
+                    return filtered.map((p) => {
+                      const realIdx = catalog.indexOf(p);
+                      return (
+                        <button
+                          key={p.id}
+                          className={`clt-proc-item${procIdx === realIdx ? ' active' : ''}`}
+                          onClick={() => setProcIdx(realIdx)}
+                        >
+                          <div className="clt-proc-item-inner">
+                            {p.categoryName && <span className="clt-proc-cat">{p.categoryName}</span>}
+                            <span className="clt-proc-name">{p.name}</span>
+                          </div>
+                          <span className="clt-proc-price">{p.price}</span>
+                          {procIdx === realIdx && (
+                            <svg className="clt-proc-check" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
+                </>
+              )}
             </div>
           )}
 
