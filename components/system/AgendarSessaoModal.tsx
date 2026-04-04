@@ -83,13 +83,14 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
     if (!isOpen) return;
     setSettingsLoaded(false);
     const supabase = createClient();
-    supabase
-      .from('clinic_settings')
-      .select('*')
-      .eq('id', 'default')
-      .single()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data, error }: any) => {
+    (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase
+          .from('clinic_settings')
+          .select('*')
+          .eq('id', 'default')
+          .single() as any);
         if (error || !data) {
           setSettings(DEFAULT_SETTINGS);
         } else {
@@ -101,9 +102,12 @@ export default function AgendarSessaoModal({ isOpen, onClose, onSaved }: Props) 
             blocked_dates:   (data.blocked_dates  ?? []).map((d: string) => String(d).slice(0, 10)),
           });
         }
+      } catch {
+        setSettings(DEFAULT_SETTINGS);
+      } finally {
         setSettingsLoaded(true);
-      })
-      .catch(() => { setSettings(DEFAULT_SETTINGS); setSettingsLoaded(true); });
+      }
+    })();
   }, [isOpen]);
 
   useEffect(() => {
