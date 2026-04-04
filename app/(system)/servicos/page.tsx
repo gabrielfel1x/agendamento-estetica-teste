@@ -310,26 +310,30 @@ export default function ServicosPage() {
                   <p className="servico-name">{s.name}</p>
                   {s.categoryName && <span className="servico-cat-badge">{s.categoryName}</span>}
                 </div>
-                <span className="servico-price">{s.price}</span>
-                <span className={`servico-status-badge ${s.active ? 'ativo' : 'inativo'}`}>
-                  {s.active ? 'Ativo' : 'Inativo'}
-                </span>
-                <button className="staff-edit-btn" onClick={() => openEdit(s)}>Editar</button>
-                <button
-                  className="staff-edit-btn servico-toggle-btn"
-                  data-active={s.active}
-                  onClick={() => toggleActive(s)}
-                >{s.active ? 'Desativar' : 'Ativar'}</button>
-                <button
-                  className="staff-delete-btn"
-                  onClick={() => { setDeleteError(''); setDeleteId(s.id); }}
-                  title="Excluir"
-                >
-                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                    <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-                  </svg>
-                </button>
+                <div className="servico-row-meta">
+                  <span className="servico-price">{s.price}</span>
+                  <span className={`servico-status-badge ${s.active ? 'ativo' : 'inativo'}`}>
+                    {s.active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+                <div className="servico-row-actions">
+                  <button className="staff-edit-btn" onClick={() => openEdit(s)}>Editar</button>
+                  <button
+                    className="staff-edit-btn servico-toggle-btn"
+                    data-active={s.active}
+                    onClick={() => toggleActive(s)}
+                  >{s.active ? 'Desativar' : 'Ativar'}</button>
+                  <button
+                    className="staff-delete-btn"
+                    onClick={() => { setDeleteError(''); setDeleteId(s.id); }}
+                    title="Excluir"
+                  >
+                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                      <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -353,25 +357,29 @@ export default function ServicosPage() {
                     <p className="servico-name">{c.name}</p>
                     <span className="servico-cat-badge">{count} serviço{count !== 1 ? 's' : ''}</span>
                   </div>
-                  <span className={`servico-status-badge ${c.active ? 'ativo' : 'inativo'}`}>
-                    {c.active ? 'Ativa' : 'Inativa'}
-                  </span>
-                  <button className="staff-edit-btn" onClick={() => openCatEdit(c)}>Editar</button>
-                  <button
-                    className="staff-edit-btn servico-toggle-btn"
-                    data-active={c.active}
-                    onClick={() => toggleCatActive(c)}
-                  >{c.active ? 'Desativar' : 'Ativar'}</button>
-                  <button
-                    className="staff-delete-btn"
-                    onClick={() => { setCatDeleteError(''); setCatDeleteId(c.id); }}
-                    title="Excluir"
-                  >
-                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                      <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-                    </svg>
-                  </button>
+                  <div className="servico-row-meta">
+                    <span className={`servico-status-badge ${c.active ? 'ativo' : 'inativo'}`}>
+                      {c.active ? 'Ativa' : 'Inativa'}
+                    </span>
+                  </div>
+                  <div className="servico-row-actions">
+                    <button className="staff-edit-btn" onClick={() => openCatEdit(c)}>Editar</button>
+                    <button
+                      className="staff-edit-btn servico-toggle-btn"
+                      data-active={c.active}
+                      onClick={() => toggleCatActive(c)}
+                    >{c.active ? 'Desativar' : 'Ativar'}</button>
+                    <button
+                      className="staff-delete-btn"
+                      onClick={() => { setCatDeleteError(''); setCatDeleteId(c.id); }}
+                      title="Excluir"
+                    >
+                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               );
             })}
