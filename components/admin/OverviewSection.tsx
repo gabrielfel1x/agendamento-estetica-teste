@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getAllAppointments, AdminAppointment } from '@/lib/admin-data';
 import { createStaffClient } from '@/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
-const TODAY_STR     = new Date().toISOString().slice(0, 10);
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 function fmtCurrency(n: number) {
@@ -25,71 +24,174 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-function computeMetrics(apts: AdminAppointment[]) {
-  const totalMonth  = apts.filter(a => a.status !== 'cancelado').length;
-  const todayApts   = apts.filter(a => a.date === TODAY_STR && a.status !== 'cancelado').length;
-  const confirmed   = apts.filter(a => a.status === 'confirmado');
-  const totalRev    = confirmed.reduce((s, a) => s + a.priceNum, 0);
+interface Apt {
+  id:        string;
+  patient:   string;
+  procedure: string;
+  price_num: number;
+  price:     string;
+  date:      string; // YYYY-MM-DD
+  time:      string; // HH:MM
+  status:    string;
+}
 
-  const upcoming = apts
-    .filter(a => a.date >= TODAY_STR && a.status !== 'cancelado')
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  const next = upcoming[0] || null;
+interface DashboardData {
+  monthApts:     Apt[];
+  nextApt:       Apt | null;
+  recentApts:    Apt[];
+  totalClientes: number;
+}
 
-  const weekCounts = [0, 0, 0, 0, 0, 0];
-  for (const a of apts) {
-    if (a.status === 'cancelado') continue;
-    const wd = new Date(a.date + 'T12:00:00').getDay();
-    if (wd >= 1 && wd <= 6) weekCounts[wd - 1]++;
-  }
+function normalizeApt(row: any): Apt {
+  return {
+    id:        row.id,
+    patient:   row.patient,
+    procedure: row.procedure,
+    price_num: row.price_num ?? 0,
+    price:     row.price ?? '',
+    date:      String(row.date).slice(0, 10),
+    time:      String(row.time).substring(0, 5),
+    status:    row.status,
+  };
+}
 
-  return { totalMonth, todayApts, totalRev, next, weekCounts };
+async function fetchDashboard(supabase: SupabaseClient): Promise<DashboardData> {
+  const now       = new Date();
+  const todayStr  = now.toISOString().slice(0, 10);
+  const year      = now.getFullYear();
+  const month     = now.getMonth() + 1;
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay   = new Date(year, month, 0).getDate();
+  const monthEnd  = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  const [monthRes, nextRes, recentRes, clientesRes] = await Promise.all([
+    // All appointments for current month
+    supabase
+      .from('appointments')
+      .select('id, patient, procedure, price_num, price, date, time, status')
+      .gte('date', monthStart)
+      .lte('date', monthEnd)
+      .order('date')
+      .order('time'),
+
+    // Next upcoming non-cancelled appointment (from today)
+    supabase
+      .from('appointments')
+      .select('id, patient, procedure, price_num, price, date, time, status')
+      .gte('date', todayStr)
+      .neq('status', 'cancelado')
+      .order('date')
+      .order('time')
+      .limit(1),
+
+    // Last 8 appointments across all time
+    supabase
+      .from('appointments')
+      .select('id, patient, procedure, price_num, price, date, time, status')
+      .order('date', { ascending: false })
+      .order('time', { ascending: false })
+      .limit(8),
+
+    // Total clients count
+    (supabase as any)
+      .from('clientes')
+      .select('id', { count: 'exact', head: true }),
+  ]);
+
+  if (monthRes.error)   console.error('[dashboard] monthApts:', monthRes.error.message);
+  if (nextRes.error)    console.error('[dashboard] nextApt:', nextRes.error.message);
+  if (recentRes.error)  console.error('[dashboard] recentApts:', recentRes.error.message);
+  if (clientesRes.error) console.error('[dashboard] clientes:', clientesRes.error.message);
+
+  return {
+    monthApts:     ((monthRes.data  ?? []) as any[]).map(normalizeApt),
+    nextApt:       nextRes.data?.[0] ? normalizeApt(nextRes.data[0]) : null,
+    recentApts:    ((recentRes.data ?? []) as any[]).map(normalizeApt),
+    totalClientes: (clientesRes as any).count ?? 0,
+  };
 }
 
 export default function OverviewSection() {
-  const [apts, setApts]       = useState<AdminAppointment[]>([]);
+  const [data, setData]       = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const staffClient = useMemo(() => createStaffClient(), []);
 
   useEffect(() => {
-    getAllAppointments(staffClient).then(data => {
-      setApts(data);
+    fetchDashboard(staffClient).then(d => {
+      setData(d);
       setLoading(false);
     });
-  }, []);
+  }, [staffClient]);
 
-  if (loading) {
+  const now        = new Date();
+  const todayStr   = now.toISOString().slice(0, 10);
+  const todayLabel = now.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  const monthLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  if (loading || !data) {
     return (
       <div className="admin-section">
         <div className="admin-section-header">
           <h2 className="admin-section-title">Visão Geral</h2>
+          <p className="admin-section-sub">{monthLabel}</p>
         </div>
         <div className="admin-loading">Carregando dados...</div>
       </div>
     );
   }
 
-  const { totalMonth, todayApts, totalRev, next, weekCounts } = computeMetrics(apts);
+  const { monthApts, nextApt, recentApts, totalClientes } = data;
+
+  const active     = monthApts.filter(a => a.status !== 'cancelado');
+  const totalMonth = active.length;
+  const totalRev   = monthApts
+    .filter(a => a.status === 'confirmado')
+    .reduce((s, a) => s + a.price_num, 0);
+  const todayCount = active.filter(a => a.date === todayStr).length;
+
+  // Weekday distribution (Mon–Sat) for current month
+  const weekCounts = [0, 0, 0, 0, 0, 0];
+  for (const a of active) {
+    const wd = new Date(a.date + 'T12:00:00').getDay();
+    if (wd >= 1 && wd <= 6) weekCounts[wd - 1]++;
+  }
   const maxCount  = Math.max(...weekCounts, 1);
   const chartData = weekCounts.map((c, i) => ({ name: WEEKDAY_LABELS[i], value: c }));
 
-  const todayLabel = new Date(TODAY_STR + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
-  const monthLabel = new Date(TODAY_STR + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
   const metrics = [
-    { label: 'Agendamentos no mês',  value: String(totalMonth),    sub: monthLabel,                    accent: false },
-    { label: 'Receita acumulada',    value: fmtCurrency(totalRev), sub: 'confirmados',                 accent: true  },
-    { label: 'Agendamentos hoje',    value: String(todayApts),     sub: todayLabel,                    accent: false },
-    { label: 'Próximo horário',      value: next ? next.time : '—', sub: next ? next.patient : 'nenhum', accent: false },
+    {
+      label:  'Agendamentos no mês',
+      value:  String(totalMonth),
+      sub:    monthLabel,
+      accent: false,
+    },
+    {
+      label:  'Receita do mês',
+      value:  fmtCurrency(totalRev),
+      sub:    'confirmados',
+      accent: true,
+    },
+    {
+      label:  'Agendamentos hoje',
+      value:  String(todayCount),
+      sub:    todayLabel,
+      accent: false,
+    },
+    {
+      label:  'Próximo horário',
+      value:  nextApt ? nextApt.time : '—',
+      sub:    nextApt ? nextApt.patient : 'nenhum pendente',
+      accent: false,
+    },
   ];
-
-  const recent = [...apts].reverse().slice(0, 6);
 
   return (
     <div className="admin-section">
       <div className="admin-section-header">
         <h2 className="admin-section-title">Visão Geral</h2>
-        <p className="admin-section-sub">{monthLabel} · atualizado agora</p>
+        <p className="admin-section-sub">
+          {monthLabel} · {totalClientes} cliente{totalClientes !== 1 ? 's' : ''} cadastrado{totalClientes !== 1 ? 's' : ''}
+        </p>
       </div>
 
       <div className="admin-metrics-grid">
@@ -109,7 +211,11 @@ export default function OverviewSection() {
         </div>
         <div className="admin-chart-body" style={{ width: '100%', height: 280 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} barCategoryGap="20%" margin={{ top: 20, right: 8, bottom: 4, left: -20 }}>
+            <BarChart
+              data={chartData}
+              barCategoryGap="20%"
+              margin={{ top: 20, right: 8, bottom: 4, left: -20 }}
+            >
               <XAxis
                 dataKey="name"
                 axisLine={false}
@@ -144,7 +250,11 @@ export default function OverviewSection() {
       <div className="admin-recent-wrap">
         <h3 className="admin-recent-title">Agendamentos recentes</h3>
         <div className="admin-recent-list">
-          {recent.map(a => (
+          {recentApts.length === 0 ? (
+            <p style={{ fontSize: '.84rem', color: 'var(--text-muted)', fontWeight: 300, padding: '8px 0' }}>
+              Nenhum agendamento encontrado.
+            </p>
+          ) : recentApts.map(a => (
             <div key={a.id} className="admin-recent-row">
               <span className="admin-recent-time">{a.time}</span>
               <span className="admin-recent-name">{a.patient}</span>

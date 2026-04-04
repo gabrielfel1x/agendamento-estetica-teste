@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface StaffProfile {
@@ -69,39 +68,19 @@ export async function createStaffUser(
   name: string,
   phone: string | null,
   role: 'admin' | 'funcionario',
-  staffClient: SupabaseClient
+  _staffClient?: SupabaseClient
 ): Promise<{ ok: boolean; error?: string; profile?: StaffProfile }> {
-  // Use the regular (non-staff) client for signup so the admin's staff session is not affected
-  const anonClient = createClient();
-  const { data, error: signupError } = await anonClient.auth.signUp({
-    email,
-    password,
-    options: { data: { name } },
-  });
-
-  if (signupError) return { ok: false, error: signupError.message };
-  if (!data.user)  return { ok: false, error: 'Erro ao criar usuário.' };
-
-  const userId = data.user.id;
-
-  // Sign out from the anon client immediately to avoid session pollution
-  await anonClient.auth.signOut();
-
-  // Upsert profile row using the authenticated staff client
-  const { error: profileError } = await staffClient
-    .from('profiles')
-    .upsert({
-      id:         userId,
-      name,
-      phone:      phone || null,
-      role,
-      updated_at: new Date().toISOString(),
+  try {
+    const res = await fetch('/api/admin/create-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name, phone, role }),
     });
-
-  if (profileError) {
-    console.error('[staff] createStaffUser profile upsert:', profileError.message);
-    return { ok: false, error: 'Usuário criado, mas erro ao salvar perfil: ' + profileError.message };
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json.error ?? 'Erro ao criar funcionária.' };
+    return { ok: true, profile: json.profile };
+  } catch (e) {
+    console.error('[staff] createStaffUser:', e);
+    return { ok: false, error: 'Erro de conexão.' };
   }
-
-  return { ok: true, profile: { id: userId, name, phone, role } };
 }
