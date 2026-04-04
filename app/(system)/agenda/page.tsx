@@ -378,18 +378,29 @@ export default function AgendaPage() {
             ))}
             {days.map((d, i) => {
               if (!d) return <div key={`e-${i}`} className="admin-cal-day empty" />;
-              const dateStr = padDate(YEAR, MONTH, d);
-              const count   = occupancy[dateStr] || 0;
-              const level   = getOccupancyLevel(count);
-              const isToday = dateStr === TODAY_STR;
-              const isSel   = d === selectedDay;
-              const isPast  = dateStr < TODAY_STR;
+              const dateStr    = padDate(YEAR, MONTH, d);
+              const count      = occupancy[dateStr] || 0;
+              const level      = getOccupancyLevel(count);
+              const isToday    = dateStr === TODAY_STR;
+              const isSel      = d === selectedDay;
+              const isPast     = dateStr < TODAY_STR;
               const hasConflict = conflictDays.has(dateStr);
+              const isInactive = !isPast && isDateBlocked(dateStr, settings);
+              const isBlocked  = !isPast && settings.blocked_dates.includes(dateStr);
               return (
                 <button
                   key={d}
-                  className={['admin-cal-day', level, isToday ? 'today' : '', isSel ? 'selected' : '', isPast ? 'past' : '', hasConflict ? 'conflict' : ''].filter(Boolean).join(' ')}
+                  className={[
+                    'admin-cal-day',
+                    level,
+                    isToday    ? 'today'    : '',
+                    isSel      ? 'selected' : '',
+                    isPast     ? 'past'     : '',
+                    hasConflict ? 'conflict' : '',
+                    isInactive ? 'inactive' : '',
+                  ].filter(Boolean).join(' ')}
                   onClick={() => setSelectedDay(d)}
+                  title={isBlocked ? 'Data bloqueada' : isInactive ? 'Dia sem atendimento' : undefined}
                 >
                   <span className="admin-cal-day-n">{d}</span>
                   {count > 0 && (
@@ -408,6 +419,7 @@ export default function AgendaPage() {
             <span className="admin-cal-legend-item"><span className="admin-cal-legend-dot low" /> 1 ag.</span>
             <span className="admin-cal-legend-item"><span className="admin-cal-legend-dot medium" /> 2 ag.</span>
             <span className="admin-cal-legend-item"><span className="admin-cal-legend-dot high" /> 3+ ag.</span>
+            <span className="admin-cal-legend-item"><span className="admin-cal-legend-dot inactive-dot" /> sem atendimento</span>
             <span className="admin-cal-legend-item"><span className="admin-cal-conflict-dot" style={{position:'static',transform:'none',marginRight:2}} /> fora do horário</span>
           </div>
         </div>

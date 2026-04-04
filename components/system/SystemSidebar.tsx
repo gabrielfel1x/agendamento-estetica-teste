@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: '/clientes',
     label: 'Equipe',
+    adminOnly: true,
     icon: (
       <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
@@ -60,7 +61,6 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: '/configuracoes',
     label: 'Configurações',
-    adminOnly: true,
     icon: (
       <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="3"/>
